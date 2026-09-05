@@ -1,0 +1,72 @@
+flowchart TD
+    subgraph ExternalActors["External Actors & Oracles"]
+        Agent["🤖 Autonomous AI Agent"]
+        Sponsor["🏢 Protocol Sponsor / Advertiser"]
+        CookieOracle["🔮 Cookie Mindshare Signer / Oracle Engine"]
+        Keeper["⚙️ Automation Keeper / Crank Engine"]
+    end
+
+    subgraph ProgramBoundary["Solana Runtime: Cookie Jar Program (cookie_jar)"]
+        subgraph Instructions["Instruction Processors"]
+            InitGlobal["initialize_protocol()"]
+            RegisterAgent["register_agent()"]
+            CreateEscrow["create_bounty_escrow()"]
+            UpdateMindshare["submit_mindshare_epoch()"]
+            SettleRewards["settle_agent_bounty()"]
+            StakeTokens["stake_agent_collateral()"]
+            SlashAgent["slash_faulty_agent()"]
+        end
+
+        subgraph PDAs["PDA State Accounts (Seeds)"]
+            GlobalConfig[("GlobalConfig PDA<br/>['config']<br/>- Authority, Treasury, FeeBps")]
+            AgentRegistry[("AgentRecord PDA<br/>['agent', agent_pubkey]<br/>- MindshareScore, Tier, StakedCollateral")]
+            BountyEscrow[("BountyEscrow PDA<br/>['escrow', sponsor, escrow_id]<br/>- TotalFunded, Remaining, EpochWindow")]
+            EpochState[("EpochState PDA<br/>['epoch', epoch_id]<br/>- TotalMindshare, Settled, FinalizedAt")]
+        end
+
+        subgraph TokenAccounts["SPL Token Vaults"]
+            EscrowVault[("Bounty SPL Vault PDA<br/>['escrow_vault', escrow_pda]")]
+            StakingVault[("Agent Stake SPL Vault PDA<br/>['staking_vault', agent_pda]")]
+            ProtocolTreasury[("Protocol Treasury Vault")]
+        end
+
+        subgraph SecurityGuards["Security & Validation Checks"]
+            SignerCheck{"Ed25519 Sig Verify<br/>& Oracle Authority?"}
+            EpochLock{"Epoch Active &<br/>Window Unsettled?"}
+            ArithmeticGuard{"Checked Math<br/>(No Under/Overflow)"}
+            ReentrancyGuard{"Account Reload &<br/>Zero-Balance Check"}
+        end
+    end
+
+    subgraph Destination["Token Distribution Destinations"]
+        AgentWallet["Agent Payout Wallet"]
+        SponsorRefund["Sponsor Refund Account"]
+        TreasuryAccount["Cookie Ecosystem DAO Fund"]
+    end
+
+    %% Interactions
+    Sponsor -->|"1. Deposit Bounty (Tokens)"| CreateEscrow
+    CreateEscrow -->|"Initializes"| BountyEscrow
+    CreateEscrow -->|"CPI Transfer"| EscrowVault
+
+    Agent -->|"2. Register & Post Bond"| RegisterAgent
+    RegisterAgent -->|"Initializes"| AgentRegistry
+    Agent -->|"Deposit Security Stake"| StakeTokens
+    StakeTokens -->|"CPI Transfer"| StakingVault
+
+    CookieOracle -->|"3. Post Signed Mindshare Score"| UpdateMindshare
+    UpdateMindshare --> SignerCheck
+    SignerCheck -->|"Valid"| EpochState
+    SignerCheck -->|"Update Metrics"| AgentRegistry
+
+    Keeper -->|"4. Trigger Batch Settlement"| SettleRewards
+    SettleRewards --> EpochLock
+    EpochLock --> ArithmeticGuard
+    ArithmeticGuard --> ReentrancyGuard
+    ReentrancyGuard -->|"CPI Transfer: Reward"| AgentWallet
+    ReentrancyGuard -->|"CPI Transfer: Protocol Cut"| TreasuryAccount
+    ReentrancyGuard -->|"Deduct balance"| EscrowVault
+
+    CookieOracle -->|"Malicious Activity Detected"| SlashAgent
+    SlashAgent -->|"Slashing CPI"| StakingVault
+    StakingVault -->|"Insurance Transfer"| ProtocolTreasury
