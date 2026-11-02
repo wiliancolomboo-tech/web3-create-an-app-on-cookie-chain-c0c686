@@ -1,0 +1,18 @@
+┌─────────────────────────────────┬────────────────────────────────────────────────────────┐
+│ Threat Vector                   │ CookieMind Defense Architecture                        │
+├─────────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Oracle Spoofing / Impersonation │ Hardware/Node Enclave Signed Keys verified via PDA     │
+│                                 │ Config constraint: `has_one = cookie_oracle_authority` │
+├─────────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Reentrancy on Liquidity Sells   │ State mutation occurs before lamport transfer;         │
+│                                 │ checks-effects-interactions pattern enforced on SVM.   │
+├─────────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Sandwich & Front-Running        │ Strict `min_tokens_out` and `min_sol_out` slippage     │
+│                                 │ parameters enforced at runtime.                        │
+├─────────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Integer Overflow / Underflow    │ Rust `checked_add`, `checked_sub`, `checked_mul`,      │
+│                                 │ and `checked_div` primitives on all u128 calculations. │
+├─────────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Stale Milestone Execution       │ Clock sysvar verification enforces strict check:       │
+│                                 │ `clock.unix_timestamp <= escrow.deadline_timestamp`    │
+└─────────────────────────────────┴────────────────────────────────────────────────────────┘

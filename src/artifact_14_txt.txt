@@ -1,0 +1,11 @@
+Threat 1: Oracle Manipulation (Fake Agent Hype)
+└── Defense: MAX_MINDSHARE_DELTA_BPS limits movement to ±5% per keeper tick.
+
+Threat 2: Stale Price Arbitrage
+└── Defense: MAX_ATTESTATION_AGE_SECONDS enforces freshness within 3600 seconds.
+
+Threat 3: Unauthorized Yield Drain / Siphon
+└── Defense: Token account constraint checks (owner == buyer, mint == quote_mint).
+
+Threat 4: Reentrancy on Cross-Program Invocations
+└── Defense: Invariant checks & CEI (Checks-Effects-Interactions) state sequence.

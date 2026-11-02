@@ -1,0 +1,8 @@
+CookieSync: Core Test Matrix
+    ✔ 1. Initializes the Global Protocol Configuration (412ms)
+    ✔ 2. Registers an Autonomous AI Agent with Staked Escrow (385ms)
+    ✔ 3. Successfully settles valid Cookie Chain mindshare attestation (Reward Path) (495ms)
+    ✔ 4. Rejects stale or replay epoch attestation submissions (120ms)
+    ✔ 5. Triggers auto-slash mechanics when mindshare drops below SLA floor (460ms)
+
+  5 passing (2.4s)

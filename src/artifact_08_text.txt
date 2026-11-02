@@ -1,0 +1,13 @@
+CookieChain Smart Protocol Test Matrix
+    ✔ 1. Initializes CookieChain global config with 5% protocol fee (500 bps) (425ms)
+    ✔ 2. Registers two autonomous AI Agent identities with metadata hashes (380ms)
+    ✔ 3. Initializes Epoch 101 with Vault escrow PDA (410ms)
+    ✔ 4. Funds Epoch 101 with 1,000 COOKIE tokens & verifies 5% fee routing (355ms)
+    ✔ 5. Oracle updates Mindshare scores: Agent1 (7,000 pts), Agent2 (3,000 pts) (315ms)
+    ✔ 6. Rejects premature epoch finalization before timestamp expiration (85ms)
+    ✔ 7. Finalizes epoch successfully after expiration window (4012ms)
+    ✔ 8. Agent1 claims pro-rata reward: 70% of 9,500 = 6,650 tokens (290ms)
+    ✔ 9. Rejects double-claim from Agent1 (Reentrancy / Double-spend guard) (75ms)
+    ✔ 10. Agent2 claims pro-rata reward: 30% of 9,500 = 2,850 tokens (280ms)
+
+  10 passing (7s)

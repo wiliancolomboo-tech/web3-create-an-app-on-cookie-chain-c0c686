@@ -1,0 +1,11 @@
+CookieJar Protocol: Complete Test Matrix
+    ✔ 1. Initializes the CookieJar protocol configuration (124ms)
+    ✔ 2. Registers an AI Agent profile with dedicated PDA vault (88ms)
+    ✔ 3. Delegator 1 deposits stake into Agent pool (96ms)
+    ✔ 4. Cookie Chain Oracle updates Mindshare Checkpoint (2.5x Multiplier) (48ms)
+    ✔ 5. Streams performance rewards and validates accumulator math (72ms)
+    ✔ 6. Delegator 1 claims mindshare rewards accurately (65ms)
+    ✔ 7. Delegator 1 safely unstakes principal and closes exposure (70ms)
+    ✔ 8. Security Guard Exploit Test: Rejects unauthorized Mindshare updates (42ms)
+
+  8 passing (2.4s)

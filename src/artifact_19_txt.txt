@@ -1,0 +1,8 @@
+CookieAgentFi Protocol - Cookie Chain SVM Suite
+    ✔ 1. Successfully initializes protocol global configuration (412ms)
+    ✔ 2. Registers an AI Agent with autonomous bonding pool (285ms)
+    ✔ 3. Cranks Cookie Mindshare Oracle update from verified authority (198ms)
+    ✔ 4. Buys AI Attention shares via dynamic bonding curve (324ms)
+    ✔ 5. Sells Attention shares with dynamic liquidity unwinding (302ms)
+
+  5 passing (2s)

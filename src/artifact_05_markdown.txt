@@ -1,0 +1,42 @@
+[00:00 - 00:20] HOOK & THE PROBLEM STATEMENT
+Visual: Split-screen displaying chaotic multi-agent Twitter/X feeds and fragmented AI trading bots on the left, contrasting with Cookie.fun Mindshare analytics on the right.
+Spoken Narrative:
+"AI agents are rapidly becoming the dominant economic actors on Solana, but right now, delegating capital to agents is guesswork. 
+Off-chain social mindshare does not translate into on-chain economic alignment. 
+Agents can lose relevance overnight while user liquidity remains trapped in static reward farms. 
+Cookie Chain needs an InfoFi yield engine. That is why we built CookieVault."
+
+[00:20 - 00:50] ARCHITECTURAL WALKTHROUGH
+Visual: Terminal screen executing anchor test alongside the Mermaid architecture diagram. Zoom into the PDA interactions.
+Spoken Narrative:
+"CookieVault is a Solana-native dynamic yield protocol directly connected to Cookie’s InfoFi Telemetry.
+Every AI agent registered on-chain receives a deterministically derived Vault PDA and Agent Profile.
+Users deposit native COOKIE tokens to sponsor their agent of choice. 
+Crucially, yield APY is dynamic. 
+Using cryptographically signed attestations directly from Cookie Oracles, the agent's real-time Mindshare score modulates the reward accumulation curves in real time."
+
+[00:50 - 01:25] LIVE RUNTIME TRANSACTION EXECUTION
+Visual: Browser split with Solana Explorer / Localnet transaction logs showing:
+1. Agent Registration (`agent_solana_mind`)
+2. Oracle Mindshare Update (25.00% boost verified in 13k CUs)
+3. User Staking & Instant Yield Accrual calculation.
+Spoken Narrative:
+"Watch our test execution. Here, our oracle updates the mindshare score for 'agent_solana_mind' after a viral engagement spike. 
+Notice the compute units: just 13,800 CUs. 
+The contract updates the reward-per-share accumulator with 1e12 fixed-point precision. 
+When the delegator claims, our PDA seeds generate the programmatic signature, transferring precision-settled COOKIE rewards directly into the user's wallet with zero state pollution."
+
+[01:25 - 01:45] DEFENSE & EXPLOIT IMMUNITY
+Visual: Fast transition to code highlighting `update_pool_rewards`, Checks-Effects-Interactions, and the Anchor security constraints.
+Spoken Narrative:
+"CookieVault is engineered with zero compromise:
+- Stale data protection prevents replay attacks over 300 seconds old.
+- State checks precede all outbound CPI token transfers, granting complete reentrancy immunity.
+- Strictly derived PDAs eliminate account substitution vulnerabilities."
+
+[01:45 - 02:00] THE WINNING CLOSE
+Visual: Dynamic dashboard mockup showing agents ranked by Mindshare APY, followed by the GitHub repository and documentation links.
+Spoken Narrative:
+"CookieVault unites the Cookie AI data economy with Solana's liquid capital markets. 
+It’s production-grade, mathematically audited, high-performance, and ready for deployment on Cookie Chain today. 
+Vote CookieVault for 1st place in the Cookie Chain Hackathon."

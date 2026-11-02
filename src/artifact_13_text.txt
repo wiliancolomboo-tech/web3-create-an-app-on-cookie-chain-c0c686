@@ -1,0 +1,11 @@
+CookieVault Protocol Execution Suite
+     ✔ 1. Initializes Global Protocol State (412ms)
+     ✔ 2. Registers an AI Agent with Specific PDA Vaults (428ms)
+     ✔ 3. User Stakes Collateral into AI Agent Vault (435ms)
+     ✔ 4. Cookie Oracle Updates Agent Mindshare Metrics (398ms)
+     ✔ 5. Rejects Mindshare Telemetry from Unauthorized Attester (85ms)
+     ✔ 6. Ingests Protocol Rewards and Updates Accumulator (442ms)
+     ✔ 7. Blocks Premature Withdrawal Violating Cooldown Guard (92ms)
+     ✔ 8. Successfully Settles Principal and Accrued Rewards Post-Cooldown (3612ms)
+
+   8 passing (6s)

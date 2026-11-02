@@ -1,0 +1,19 @@
+cookie_syndicate/
+├── Anchor.toml
+├── Cargo.toml
+├── programs/
+│   └── cookie_syndicate/
+│       ├── Cargo.toml
+│       └── src/
+│           ├── errors.rs
+│           ├── instructions/
+│           │   ├── initialize.rs
+│           │   ├── register_agent.rs
+│           │   ├── update_oracle.rs
+│           │   ├── stake.rs
+│           │   ├── unstake.rs
+│           │   └── claim.rs
+│           ├── state.rs
+│           └── lib.rs
+└── tests/
+    └── cookie_syndicate.ts

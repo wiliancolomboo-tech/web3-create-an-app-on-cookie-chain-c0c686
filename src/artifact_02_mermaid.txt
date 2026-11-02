@@ -1,0 +1,79 @@
+flowchart TD
+    subgraph Client_and_Agent_Layer["Client & Agent Layer"]
+        A[AI Agent Client / Bot]
+        U[User / Capital Provider]
+        O[Cookie Mindshare Keeper / Oracle]
+    end
+
+    subgraph Cookie_Chain_SVM["Cookie Chain SVM Runtime"]
+        subgraph Account_Derivations["PDA & Account Derivations"]
+            GState["Global Config PDA<br/>seed: ['config']"]
+            AgentAcc["Agent Account PDA<br/>seed: ['agent', agent_id]"]
+            StakeVault["Stake Vault PDA<br/>seed: ['vault', agent_id]"]
+            UserStakeAcc["User Stake PDA<br/>seed: ['stake', agent_id, user_pubkey]"]
+            TaskEscrowAcc["Task Escrow PDA<br/>seed: ['task', task_id]"]
+            EscrowVault["Escrow Token Vault<br/>seed: ['escrow_vault', task_id]"]
+        end
+
+        subgraph Instruction_Pipeline["Instruction Pipeline"]
+            IxInit["initialize_protocol()"]
+            IxReg["register_agent()"]
+            IxUpdateScore["update_mindshare_score()"]
+            IxStake["stake_to_agent()"]
+            IxUnstake["unstake_from_agent()"]
+            IxClaim["claim_agent_yield()"]
+            IxCreateTask["create_task_escrow()"]
+            IxCompleteTask["complete_task()"]
+            IxResolveDispute["resolve_dispute()"]
+        end
+
+        subgraph Security_and_Verification["Security & Guard Layer"]
+            SecSigner["Signer & Admin Checks"]
+            SecOracle["Oracle Signature Validation (Ed25519)"]
+            SecMath["Checked Fixed-Point Math (Precision 1e9)"]
+            SecReentrancy["Solana State Locking / Zero-Balance Flushes"]
+        end
+    end
+
+    subgraph External_Programs["External On-Chain Programs"]
+        SPL["SPL Token Program / Token-2022"]
+        System["System Program"]
+    end
+
+    %% Flow connections
+    U -->|Deposit Capital| IxStake
+    U -->|Withdraw Capital| IxUnstake
+    U -->|Harvest Yield| IxClaim
+
+    A -->|Register Identity| IxReg
+    A -->|Fund Sub-Task| IxCreateTask
+    A -->|Submit Deliverable Proof| IxCompleteTask
+
+    O -->|Push Mindshare Metric| IxUpdateScore
+
+    IxInit --> GState
+    IxReg --> AgentAcc
+    IxUpdateScore --> SecOracle
+    SecOracle --> AgentAcc
+
+    IxStake --> SecMath
+    SecMath --> UserStakeAcc
+    SecMath --> StakeVault
+    IxStake -->|CPI Transfer| SPL
+
+    IxCreateTask --> TaskEscrowAcc
+    IxCreateTask -->|CPI Escrow Lock| SPL
+    IxCreateTask --> EscrowVault
+
+    IxCompleteTask --> TaskEscrowAcc
+    TaskEscrowAcc -->|CPI Escrow Release| SPL
+
+    IxResolveDispute --> TaskEscrowAcc
+    IxResolveDispute -->|Slashed Payout| SPL
+
+    style Client_and_Agent_Layer fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc
+    style Cookie_Chain_SVM fill:#1e1e2f,stroke:#818cf8,stroke-width:2px,color:#f8fafc
+    style Account_Derivations fill:#111827,stroke:#a855f7,stroke-width:1px,color:#f8fafc
+    style Instruction_Pipeline fill:#18182b,stroke:#22c55e,stroke-width:1px,color:#f8fafc
+    style Security_and_Verification fill:#26182c,stroke:#f43f5e,stroke-width:1px,color:#f8fafc
+    style External_Programs fill:#022c22,stroke:#10b981,stroke-width:2px,color:#f8fafc

@@ -1,0 +1,22 @@
+┌────────────────────────────┬─────────────────────────────┬────────────────────────────────────────────────────────┐
+│ Attack Vector              │ Risk Classification         │ Protocol Mitigation Implementation                     │
+├────────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Oracle Impersonation       │ Critical (P0)               │ ProtocolConfig PDA holds certified oracle_signer;      │
+│                            │                             │ update_mindshare enforces has_one = oracle_signer      │
+├────────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Mindshare Sybil / Inflation│ High (P1)                   │ Verified off-chain Cookie Data Engine cryptographic    │
+│                            │                             │ attestation required before reaching threshold         │
+├────────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Reentrancy & Double Claims │ Critical (P0)               │ State flag `is_claimed = true` toggled prior to CPI    │
+│                            │                             │ transfer invocation; strictly checks !is_claimed       │
+├────────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Integer Overflow / Underflow│ High (P1)                  │ Comprehensive use of Rust `.checked_mul()`,            │
+│                            │                             │ `.checked_div()`, and `.checked_add()` via Result<?>   │
+├────────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Account Substitution Attacks│ High (P1)                  │ Strict Anchor PDA constraints with byte seeds:         │
+│                            │                             │ seeds = [b"vault", bounty_id.as_bytes()]               │
+│                            │                             │ has_one = mint, has_one = owner                        │
+├────────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Arbitrary Lamport Drain    │ Critical (P0)               │ Native lamport transfers strictly bounded by signed    │
+│                            │                             │ delegator checks; Vault owned by BountyEscrow PDA      │
+└────────────────────────────┴─────────────────────────────┴────────────────────────────────────────────────────────┘

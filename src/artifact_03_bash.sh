@@ -1,0 +1,1 @@
+anchor init cookie_engine --template multiple

@@ -1,0 +1,11 @@
+Cookie Agent Vault Test Suite
+    ✔ 1. Initializes Global Config successfully (422ms)
+    ✔ 2. Registers an AI Agent with Vault PDA (468ms)
+    ✔ 3. Rejects Mindshare updates from unauthorized sources (312ms)
+    ✔ 4. Accepts valid Cookie Mindshare updates from designated Oracle (298ms)
+    ✔ 5. Allows Alice to stake agent tokens (410ms)
+    ✔ 6. Injects Yield and applies Mindshare Boost Multipliers (482ms)
+    ✔ 7. Allows Alice to accurately claim mindshare-boosted yield (405ms)
+    ✔ 8. Alice unstakes principal without loss (391ms)
+
+  8 passing (3.2s)

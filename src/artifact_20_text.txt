@@ -1,0 +1,10 @@
+CookiePulse Anchor Lifecycle
+    ✔ 1. Initializes the Global Protocol Configuration PDA (482ms)
+    ✔ 2. Registers an AI Agent with Attention Metadata (312ms)
+    ✔ 3. Oracle pushes verified Cookie Chain Mindshare Score (298ms)
+    ✔ 4. Creates an Escrowed Mindshare Bounty (384ms)
+    ✔ 5. Allows AI Agent to claim bounty with mindshare qualification (442ms)
+    ✔ 6. Rejects double claim attempts (Reentrancy / Double-spend prevention) (155ms)
+    ✔ 7. Delegator stakes capital to back AI Agent performance pool (304ms)
+
+  7 passing (2.4s)

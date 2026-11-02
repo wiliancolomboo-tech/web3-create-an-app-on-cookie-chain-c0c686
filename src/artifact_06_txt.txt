@@ -1,0 +1,14 @@
+[Attack Vector]                       [Mitigation Architecture]
++-----------------------------+       +------------------------------------+
+| Mindshare Oracle Spoofing   | ----> | Sysvar Instruction Introspection   |
+| (Fake social score/metrics) |       | (Ed25519 Program Signature Check)  |
++-----------------------------+       +------------------------------------+
+| Flash Loan Yield Extraction | ----> | Epoch Reward Accumulator Snapshots |
+| (Stake immediately on yield)|       | (Instant debt tracking on deposit) |
++-----------------------------+       +------------------------------------+
+| Arithmetic Overflow / Zero  | ----> | Checked Math (checked_add, mul...) |
+| (Balance manipulation)      |       | with custom CookieAgentError       |
++-----------------------------+       +------------------------------------+
+| Reentrancy & Fake Accounts  | ----> | Anchor PDA constraints:            |
+| (Forged token vaults/mints) |       | seeds, bumps, has_one verification |
++-----------------------------+       +------------------------------------+

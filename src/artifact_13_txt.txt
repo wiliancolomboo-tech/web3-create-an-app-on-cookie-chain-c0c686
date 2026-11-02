@@ -1,0 +1,13 @@
++----------------------------+-------------------------------------+---------------------------------------------+
+| Attack Vector / Fault      | Impact Severity                     | On-Chain Defense Mechanism                  |
++----------------------------+-------------------------------------+---------------------------------------------+
+| PDA Seed Collision         | Critical (Fund Loss)                | Distinct namespaces (`b"agent"`, `b"vault"`)  |
+|                            |                                     | bound to Agent ID & Creator Pubkey.         |
+| Fake Oracle Attestation    | Critical (Drain Stream)             | Strict `constraint = oracle == state.oracle`|
+| Reentrancy via CPI         | High (Double Claim)                 | Checks-Effects-Interactions: Timestamp and  |
+|                            |                                     | internal ledger mutated prior to CPI.       |
+| Integer Arithmetic Wrap    | High (Vault Insolvency)             | Full unchecked block exclusion; checked_mul,|
+|                            |                                     | checked_div, checked_add on all paths.      |
+| Front-running Epochs       | Medium (Premature Claim)            | Epoch monotonically increasing guard and    |
+|                            |                                     | strict `Clock::get()?.unix_timestamp` delta.|
++----------------------------+-------------------------------------+---------------------------------------------+

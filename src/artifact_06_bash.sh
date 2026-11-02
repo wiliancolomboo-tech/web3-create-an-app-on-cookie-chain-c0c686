@@ -1,8 +1,8 @@
-# 1. Build the program binary and IDL
+# 1. Build the Anchor program to generate keypairs and IDL
 anchor build
 
-# 2. Synchronize Program ID with declared key
-anchor keys sync
+# 2. Fetch the newly generated Program ID
+solana address -k target/deploy/cookie_jar-keypair.json
 
-# 3. Run complete test suite on isolated localnet
-anchor test
+# 3. Synchronize keys across lib.rs and Anchor.toml
+anchor keys sync

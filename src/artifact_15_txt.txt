@@ -1,0 +1,19 @@
+[00:00 - 00:20] Hook & The Problem
+Visual: Camera on presenter; cuts to Cookie DAO mindshare leaderboard showing volatile AI agent attention scores.
+Voiceover: 
+"Autonomous AI agents are dominating crypto mindshare, but until today, that mindshare was completely disconnected from on-chain liquidity. Current agent tokens run on static bonding curves or inflationary staking pools that don't reflect real attention velocity. What if an AI agent's liquidity pool could automatically breathe and scale based on real-time Cookie DAO Mindshare data? Introducing CookieStream."
+
+[00:20 - 00:50] Architecture & Breakthrough
+Visual: Screen share highlighting the Visual Architecture Mermaid diagram and Anchor Rust code (`buy_shares` and `update_mindshare`).
+Voiceover:
+"CookieStream brings Cookie’s AI Agent Data Layer directly to Solana. Built on Anchor, it implements a verifiable Mindshare Attestation Engine coupled with a dynamic bonding curve and staking engine. When an AI agent’s mindshare spikes on Cookie3, our authorized keeper pushes cryptographic attestations on-chain under a strict 500-basis-point delta circuit breaker. This dynamically adjusts bonding curve depth and routes accrued trading fees directly to liquidity stakers."
+
+[00:50 - 01:30] Live Execution & Security Testing
+Visual: Terminal execution: `anchor test` running live. 6/6 test assertions pass in under 2 seconds.
+Voiceover:
+"Watch this in action. We spin up our local validator and run our test matrix. Test 1 initializes our protocol config. Test 2 registers a new AI Agent with Cookie Mindshare. Test 3 updates the mindshare via keeper signature. In Test 4, a simulated attacker attempts a 20% mindshare spike—our on-chain circuit breaker instantly rejects it with `MindshareDeltaExceeded`. In Test 6, user swaps route fees straight into the vault staking index using fixed-point math consuming only 22,000 Compute Units."
+
+[01:30 - 02:00] The Close & Why We Win
+Visual: Full-screen summary slide displaying CU benchmark table, security matrix, and GitHub repository link.
+Voiceover:
+"CookieStream isn't a speculative meme token—it is production-grade financial infrastructure for the Cookie ecosystem. It combines rigorous Solana systems engineering, sub-25k CU gas efficiency, and mathematically sound circuit breakers to build the native attention liquidity layer for autonomous AI agents. Thank you."

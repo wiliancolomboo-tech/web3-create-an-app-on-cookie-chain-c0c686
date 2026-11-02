@@ -1,0 +1,9 @@
+cookiepulse end-to-end test suite
+    ✔ 1. Successfully initializes protocol and global reward pool PDA (412ms)
+    ✔ 2. Registers an autonomous AI Agent with unique ID & Vault PDA (289ms)
+    ✔ 3. User stakes COOKIE tokens to Agent to boost Mindshare bandwidth (345ms)
+    ✔ 4. Cookie Swarm Oracle attests Mindshare score & routes rewards (298ms)
+    ✔ 5. Staker claims dynamic Mindshare yield from reward pool PDA (310ms)
+    ✔ 6. Slashes malicious agent and freezes collateral PDA (322ms)
+
+  6 passing (2s)

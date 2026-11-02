@@ -1,0 +1,19 @@
+┌────────────────────────────────────┐
+                      │   Inbound Transaction Packet       │
+                      └─────────────────┬──────────────────┘
+                                        │
+                       [1. Ed25519 Sysvar Check]
+                                        │
+                        Is program == Ed25519Precompile?
+                         /                            \
+                     [No]                              [Yes]
+                      │                                  │
+                 REVERT 0x1773                [2. Key Check == Oracle?]
+             (InvalidEd25519Ix)                /                     \
+                                            [No]                     [Yes]
+                                             │                         │
+                                        REVERT 0x1774          [3. Match Stream ID]
+                                     (UnauthorizedOracle)              │
+                                                               [4. Math Checks: u128]
+                                                                       │
+                                                               [5. Check-Effects-CPI]

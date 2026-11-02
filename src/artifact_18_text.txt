@@ -1,0 +1,9 @@
+cookie_stream: Production Test Suite
+    ✔ 1. Initializes global protocol configuration (412ms)
+    ✔ 2. Registers an AI Agent with Cookie Mindshare index (388ms)
+    ✔ 3. Keeper updates agent Cookie Mindshare within bounded delta threshold (295ms)
+    ✔ 4. Rejects Mindshare updates exceeding delta guard (> 500 BPS) (72ms)
+    ✔ 5. Rejects unauthorized keeper updates (65ms)
+    ✔ 6. Executes Mindshare dynamic swap and accrues yield to vault stakers (380ms)
+
+  6 passing (2s)

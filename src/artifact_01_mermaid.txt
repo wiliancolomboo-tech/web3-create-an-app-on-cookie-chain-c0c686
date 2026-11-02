@@ -1,72 +1,66 @@
 flowchart TD
-    subgraph ExternalActors["External Actors & Oracles"]
-        Agent["🤖 Autonomous AI Agent"]
-        Sponsor["🏢 Protocol Sponsor / Advertiser"]
-        CookieOracle["🔮 Cookie Mindshare Signer / Oracle Engine"]
-        Keeper["⚙️ Automation Keeper / Crank Engine"]
+    subgraph Client_And_Agent_Layer [Client & Agent Interaction Layer]
+        Agent[Autonomous AI Agent Runtime]
+        User[Delegator / Staker]
+        OracleNode[Cookie Chain Indexer / Oracle Node]
     end
 
-    subgraph ProgramBoundary["Solana Runtime: Cookie Jar Program (cookie_jar)"]
-        subgraph Instructions["Instruction Processors"]
-            InitGlobal["initialize_protocol()"]
-            RegisterAgent["register_agent()"]
-            CreateEscrow["create_bounty_escrow()"]
-            UpdateMindshare["submit_mindshare_epoch()"]
-            SettleRewards["settle_agent_bounty()"]
-            StakeTokens["stake_agent_collateral()"]
-            SlashAgent["slash_faulty_agent()"]
+    subgraph Solana_Runtime [Cookie Chain / Solana SVM Execution Layer]
+        subgraph Program_Instructions [CookieJar Program Instructions]
+            IX_Init[initialize_protocol]
+            IX_Register[register_agent]
+            IX_Stake[delegate_stake]
+            IX_Undelegate[undelegate_stake]
+            IX_Attest[submit_mindshare_attestation]
+            IX_Distribute[distribute_performance_rewards]
+            IX_Claim[claim_delegator_rewards]
         end
 
-        subgraph PDAs["PDA State Accounts (Seeds)"]
-            GlobalConfig[("GlobalConfig PDA<br/>['config']<br/>- Authority, Treasury, FeeBps")]
-            AgentRegistry[("AgentRecord PDA<br/>['agent', agent_pubkey]<br/>- MindshareScore, Tier, StakedCollateral")]
-            BountyEscrow[("BountyEscrow PDA<br/>['escrow', sponsor, escrow_id]<br/>- TotalFunded, Remaining, EpochWindow")]
-            EpochState[("EpochState PDA<br/>['epoch', epoch_id]<br/>- TotalMindshare, Settled, FinalizedAt")]
+        subgraph Account_State_PDAs [PDA State Layout]
+            ConfigAccount[("Config PDA<br/>[b'config']<br/>- authority: Pubkey<br/>- oracle_signer: Pubkey<br/>- fee_bps: u16")]
+            AgentAccount[("Agent PDA<br/>[b'agent', agent_id]<br/>- owner: Pubkey<br/>- mindshare_score: u64<br/>- total_staked: u64<br/>- reward_epoch: u64<br/>- status: Active/Slashed")]
+            StakeRecordAccount[("Stake Record PDA<br/>[b'stake', agent.key(), user.key()]<br/>- delegator: Pubkey<br/>- amount: u64<br/>- reward_debt: u128")]
+            VaultPDA[("Vault Authority PDA<br/>[b'vault_auth']")]
         end
 
-        subgraph TokenAccounts["SPL Token Vaults"]
-            EscrowVault[("Bounty SPL Vault PDA<br/>['escrow_vault', escrow_pda]")]
-            StakingVault[("Agent Stake SPL Vault PDA<br/>['staking_vault', agent_pda]")]
-            ProtocolTreasury[("Protocol Treasury Vault")]
-        end
-
-        subgraph SecurityGuards["Security & Validation Checks"]
-            SignerCheck{"Ed25519 Sig Verify<br/>& Oracle Authority?"}
-            EpochLock{"Epoch Active &<br/>Window Unsettled?"}
-            ArithmeticGuard{"Checked Math<br/>(No Under/Overflow)"}
-            ReentrancyGuard{"Account Reload &<br/>Zero-Balance Check"}
+        subgraph Token_Vaults [SPL Token Vaults]
+            StakeVault[("Agent Stake Vault<br/>SPL Token Account")]
+            RewardVault[("Protocol Reward Vault<br/>SPL Token Account")]
         end
     end
 
-    subgraph Destination["Token Distribution Destinations"]
-        AgentWallet["Agent Payout Wallet"]
-        SponsorRefund["Sponsor Refund Account"]
-        TreasuryAccount["Cookie Ecosystem DAO Fund"]
+    subgraph Security_And_Guards [Validation & Execution Guards]
+        Guard_Signer{Signer Check<br/>& Seed Canonicalization}
+        Guard_Oracle{Ed25519 Sig Verify<br/>& Freshness Timestamp}
+        Guard_Math{Checked Math<br/>& Precision Scaling}
     end
 
     %% Interactions
-    Sponsor -->|"1. Deposit Bounty (Tokens)"| CreateEscrow
-    CreateEscrow -->|"Initializes"| BountyEscrow
-    CreateEscrow -->|"CPI Transfer"| EscrowVault
+    OracleNode -->|1. Signed Mindshare Payload| Guard_Oracle
+    Guard_Oracle -->|Valid Signature| IX_Attest
+    IX_Attest -->|Mutate Metrics & Epoch| AgentAccount
 
-    Agent -->|"2. Register & Post Bond"| RegisterAgent
-    RegisterAgent -->|"Initializes"| AgentRegistry
-    Agent -->|"Deposit Security Stake"| StakeTokens
-    StakeTokens -->|"CPI Transfer"| StakingVault
+    User -->|2. Deposit Collateral| IX_Stake
+    IX_Stake --> Guard_Signer
+    Guard_Signer -->|Transfer via CPI| StakeVault
+    IX_Stake -->|Update State| StakeRecordAccount
+    IX_Stake -->|Increment Staked| AgentAccount
 
-    CookieOracle -->|"3. Post Signed Mindshare Score"| UpdateMindshare
-    UpdateMindshare --> SignerCheck
-    SignerCheck -->|"Valid"| EpochState
-    SignerCheck -->|"Update Metrics"| AgentRegistry
+    Agent -->|3. Register Identity| IX_Register
+    IX_Register --> AgentAccount
 
-    Keeper -->|"4. Trigger Batch Settlement"| SettleRewards
-    SettleRewards --> EpochLock
-    EpochLock --> ArithmeticGuard
-    ArithmeticGuard --> ReentrancyGuard
-    ReentrancyGuard -->|"CPI Transfer: Reward"| AgentWallet
-    ReentrancyGuard -->|"CPI Transfer: Protocol Cut"| TreasuryAccount
-    ReentrancyGuard -->|"Deduct balance"| EscrowVault
+    IX_Distribute --> Guard_Math
+    Guard_Math -->|Compute Emission Matrix| AgentAccount
+    RewardVault -.->|Yield Payout CPI| User
 
-    CookieOracle -->|"Malicious Activity Detected"| SlashAgent
-    SlashAgent -->|"Slashing CPI"| StakingVault
-    StakingVault -->|"Insurance Transfer"| ProtocolTreasury
+    ConfigAccount -.->|Global Parameters| Program_Instructions
+    VaultPDA -.->|Seeds Signer| StakeVault
+    VaultPDA -.->|Seeds Signer| RewardVault
+
+    style ConfigAccount fill:#1E293B,stroke:#38BDF8,stroke-width:2px,color:#F8FAFC
+    style AgentAccount fill:#1E293B,stroke:#F59E0B,stroke-width:2px,color:#F8FAFC
+    style StakeRecordAccount fill:#1E293B,stroke:#10B981,stroke-width:2px,color:#F8FAFC
+    style VaultPDA fill:#1E293B,stroke:#EC4899,stroke-width:2px,color:#F8FAFC
+    style Guard_Oracle fill:#312E81,stroke:#818CF8,stroke-width:2px,color:#F8FAFC
+    style Guard_Signer fill:#312E81,stroke:#818CF8,stroke-width:2px,color:#F8FAFC
+    style Guard_Math fill:#312E81,stroke:#818CF8,stroke-width:2px,color:#F8FAFC

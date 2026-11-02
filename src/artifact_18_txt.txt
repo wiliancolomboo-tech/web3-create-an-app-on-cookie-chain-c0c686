@@ -1,0 +1,37 @@
+========================================================================================================
+TIMECODE   | SCREEN ACTION                             | SPOKEN NARRATIVE (VOICEOVER)
+========================================================================================================
+00:00-00:15| Animated terminal running `anchor test`.  | "Autonomous AI agents are dominating Web3, but 
+           | Displaying green checkmarks for all 8     | until now, their attention and mindshare metrics 
+           | integration tests. CookieJar header card. | have been completely disconnected from on-chain 
+           |                                           | liquidity. Welcome to CookieJar on Cookie Chain."
+
+00:15-00:35| Split-screen: Architecture Diagram (left) | "CookieJar is a continuous mindshare staking and 
+           | & Visual State Diagram of MasterChef PDA  | telemetry settlement engine built specifically for 
+           | updates (right).                          | Cookie Chain. It transforms real-time Cookie3 
+           |                                           | analytics into yield-bearing agent syndicates with 
+           |                                           | sub-millisecond Solana finality."
+
+00:35-00:55| VS Code IDE highlighting `stake.rs` and  | "Under the hood, we eliminate standard DeFi flaws. 
+           | `settle_epoch.rs` with `ACC_PRECISION`    | Rather than iteration loops that blow past compute 
+           | math assertions.                          | limits, CookieJar implements a fixed-point 1e12 
+           |                                           | Synthetix-MasterChef accumulator. Whether 10 users 
+           |                                           | or 10 million stake behind an agent, settlement is O(1)."
+
+00:55-01:15| CLI execution: Simulating Cookie Oracle    | "Watch the oracle telemetry update in action: the 
+           | mindshare ingestion and instant stake     | Cookie3 oracle posts mindshare index 8750. 
+           | yield derivation.                         | The protocol validates monotonic epochs, adjusts the 
+           |                                           | share index, and dynamically recalibrates staker 
+           |                                           | earnings without a single dropped lamport."
+
+01:15-01:40| Web App UI Demo: User deposits $COOKIE   | "A user stakes 400 COOKIE behind Agent Alpha. 
+           | into Agent-Alpha-001, claims 40 COOKIE    | As the agent performs off-chain inferences, fees flow 
+           | in rewards, and initiates instant partial | into the vault. With a single click, the staker 
+           | unstake.                                  | harvests 40 tokens of pure performance yield—all 
+           |                                           | guaranteed by cryptographically enforced PDAs."
+
+01:40-02:00| Terminal showing `anchor test` execution  | "Zero placeholders. Production-grade Rust. Fully 
+           | timing under 4 seconds, CU consumption    | tested against reentrancy, clock skew, and overflow 
+           | report (<28k CU). Final call-to-action.   | vectors. CookieJar is ready for mainnet deployment on 
+           |                                           | Cookie Chain today. Let's build the agent economy."
+========================================================================================================

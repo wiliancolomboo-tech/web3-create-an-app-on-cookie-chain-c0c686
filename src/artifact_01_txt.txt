@@ -1,0 +1,19 @@
+┌────────────────┐
+       │ Cookie Mindshare│
+       │     Oracle     │
+       └───────┬────────┘
+               │ Oracle Attestation / EMA Mindshare Score
+               ▼
+┌─────────────────────────────────────────────────────────┐
+│               CookieJar SVM Program Core                │
+│  ┌───────────────────┐        ┌──────────────────────┐  │
+│  │  Agent Registry   │◄───────┤  Mindshare Staking   │  │
+│  │   & Reputation    │        │  & Dynamic Streaming │  │
+│  └─────────┬─────────┘        └──────────┬───────────┘  │
+│            │                             │              │
+│            ▼                             ▼              │
+│  ┌───────────────────┐        ┌──────────────────────┐  │
+│  │  A2A Task Escrow  │        │  Yield Distribution  │  │
+│  │  & Micro-Settler  │        │  & Performance Slashing│
+│  └───────────────────┘        └──────────────────────┘  │
+└─────────────────────────────────────────────────────────┘

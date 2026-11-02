@@ -1,272 +1,240 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program, BN } from "@coral-xyz/anchor";
-import { CookieJar } from "../target/types/cookie_jar";
+import { Program } from "@coral-xyz/anchor";
+import { CookieChain } from "../target/types/cookie_chain";
 import {
-  createMint,
-  createAccount,
-  mintTo,
-  getAccount,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
-import { Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+  PublicKey,
+  Keypair,
+  SystemProgram,
+  SYSVAR_INSTRUCTIONS_PUBKEY,
+  Ed25519Program,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
 import { expect } from "chai";
+import * as nacl from "tweetnacl";
 
-describe("Cookie Jar Protocol Suite", () => {
+describe("cookie-chain test suite", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.CookieJar as Program<CookieJar>;
+  const program = anchor.workspace.CookieChain as Program<CookieChain>;
 
   const admin = Keypair.generate();
-  const oracle = Keypair.generate();
-  const sponsor = Keypair.generate();
-  const agentOwner = Keypair.generate();
-  const treasuryOwner = Keypair.generate();
+  const oracleKeypair = Keypair.generate();
+  const creator = Keypair.generate();
+  const buyer = Keypair.generate();
+  const agentId = "eliza_cookie_001";
 
-  let tokenMint: PublicKey;
-  let sponsorTokenAccount: PublicKey;
-  let agentPayoutTokenAccount: PublicKey;
-  let treasuryTokenAccount: PublicKey;
-  let agentFunderTokenAccount: PublicKey;
-
-  let configPda: PublicKey;
-  let agentRecordPda: PublicKey;
-  let stakingVaultPda: PublicKey;
-  let escrowPda: PublicKey;
-  let escrowVaultPda: PublicKey;
-  let epochPda: PublicKey;
-
-  const feeBps = 250; // 2.5% fee
-  const escrowId = new BN(1001);
-  const targetEpoch = new BN(42);
-  const bountyAmount = new BN(100_000_000); // 100 Tokens
-  const initialAgentStake = new BN(5_000_000); // 5 Tokens
+  let globalConfigPda: PublicKey;
+  let agentRegistryPda: PublicKey;
+  let vaultReservePda: PublicKey;
+  let userPositionPda: PublicKey;
 
   before(async () => {
-    // Fund actors with SOL
-    for (const kp of [admin, oracle, sponsor, agentOwner, treasuryOwner]) {
-      const sig = await provider.connection.requestAirdrop(kp.publicKey, 10 * anchor.web3.LAMPORTS_PER_SOL);
-      const latestBlockHash = await provider.connection.getLatestBlockhash();
-      await provider.connection.confirmTransaction({
-        blockhash: latestBlockHash.blockhash,
-        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-        signature: sig,
-      });
+    // Airdrop SOL to test actors
+    for (const kp of [admin, creator, buyer]) {
+      const sig = await provider.connection.requestAirdrop(
+        kp.publicKey,
+        10 * LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(sig);
     }
 
-    // Create reward token mint (6 decimals)
-    tokenMint = await createMint(
-      provider.connection,
-      admin,
-      admin.publicKey,
-      null,
-      6
+    [globalConfigPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("global_config")],
+      program.programId
     );
 
-    // Create Token Accounts
-    sponsorTokenAccount = await createAccount(provider.connection, sponsor, tokenMint, sponsor.publicKey);
-    agentPayoutTokenAccount = await createAccount(provider.connection, agentOwner, tokenMint, agentOwner.publicKey);
-    treasuryTokenAccount = await createAccount(provider.connection, treasuryOwner, tokenMint, treasuryOwner.publicKey);
-    agentFunderTokenAccount = await createAccount(provider.connection, agentOwner, tokenMint, agentOwner.publicKey);
+    [agentRegistryPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("agent_registry"), Buffer.from(agentId)],
+      program.programId
+    );
 
-    // Mint tokens to sponsor and agent owner
-    await mintTo(provider.connection, admin, tokenMint, sponsorTokenAccount, admin, 1_000_000_000);
-    await mintTo(provider.connection, admin, tokenMint, agentFunderTokenAccount, admin, 50_000_000);
+    [vaultReservePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault_reserve"), Buffer.from(agentId)],
+      program.programId
+    );
 
-    // Derive PDAs
-    [configPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], program.programId);
-    [agentRecordPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("agent"), agentOwner.publicKey.toBuffer()],
-      program.programId
-    );
-    [stakingVaultPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("staking_vault"), agentRecordPda.toBuffer()],
-      program.programId
-    );
-    [escrowPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("escrow"), sponsor.publicKey.toBuffer(), escrowId.toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    [escrowVaultPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("escrow_vault"), escrowPda.toBuffer()],
-      program.programId
-    );
-    [epochPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("epoch"), targetEpoch.toArrayLike(Buffer, "le", 8)],
+    [userPositionPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("user_position"),
+        agentRegistryPda.toBuffer(),
+        buyer.publicKey.toBuffer(),
+      ],
       program.programId
     );
   });
 
-  it("1. Initializes global protocol configuration", async () => {
+  it("1. Initializes Protocol successfully", async () => {
+    const feeBps = 300; // 3%
     await program.methods
-      .initializeProtocol(feeBps, oracle.publicKey)
-      .accountsPartial({
+      .initializeProtocol(feeBps, oracleKeypair.publicKey)
+      .accounts({
+        globalConfig: globalConfigPda,
         admin: admin.publicKey,
-        config: configPda,
         systemProgram: SystemProgram.programId,
       })
       .signers([admin])
       .rpc();
 
-    const configAccount = await program.account.globalConfig.fetch(configPda);
-    expect(configAccount.admin.toBase58()).to.equal(admin.publicKey.toBase58());
-    expect(configAccount.oracleSigner.toBase58()).to.equal(oracle.publicKey.toBase58());
-    expect(configAccount.protocolFeeBps).to.equal(feeBps);
+    const config = await program.account.globalConfig.fetch(globalConfigPda);
+    expect(config.feeBps).to.equal(300);
+    expect(config.oracleSigner.toBase58()).to.equal(
+      oracleKeypair.publicKey.toBase58()
+    );
+    expect(config.totalAgents.toNumber()).to.equal(0);
   });
 
-  it("2. Registers an AI Agent and initializes staking vault", async () => {
+  it("2. Registers an AI Agent with Cookie Mindshare", async () => {
+    const initialMindshare = new anchor.BN(8500); // 85.00 mindshare
+
     await program.methods
-      .registerAgent("agent_cookie_alpha", "https://cookie3.co/agents/alpha.json")
-      .accountsPartial({
-        agentOwner: agentOwner.publicKey,
-        agentRecord: agentRecordPda,
-        stakingMint: tokenMint,
-        stakingVault: stakingVaultPda,
-        config: configPda,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        rent: SYSVAR_RENT_PUBKEY,
-      })
-      .signers([agentOwner])
-      .rpc();
-
-    const agent = await program.account.agentRecord.fetch(agentRecordPda);
-    expect(agent.agentId).to.equal("agent_cookie_alpha");
-    expect(agent.isActive).to.be.true;
-    expect(agent.stakedAmount.toNumber()).to.equal(0);
-  });
-
-  it("3. Stakes collateral for registered AI Agent", async () => {
-    await program.methods
-      .stakeCollateral(initialAgentStake)
-      .accountsPartial({
-        funder: agentOwner.publicKey,
-        agentRecord: agentRecordPda,
-        stakingVault: stakingVaultPda,
-        funderTokenAccount: agentFunderTokenAccount,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .signers([agentOwner])
-      .rpc();
-
-    const agent = await program.account.agentRecord.fetch(agentRecordPda);
-    const vaultBal = await getAccount(provider.connection, stakingVaultPda);
-    expect(agent.stakedAmount.toNumber()).to.equal(initialAgentStake.toNumber());
-    expect(Number(vaultBal.amount)).to.equal(initialAgentStake.toNumber());
-  });
-
-  it("4. Creates a Sponsor Campaign Escrow Vault", async () => {
-    await program.methods
-      .createEscrow(escrowId, bountyAmount, targetEpoch)
-      .accountsPartial({
-        sponsor: sponsor.publicKey,
-        mint: tokenMint,
-        bountyEscrow: escrowPda,
-        escrowVault: escrowVaultPda,
-        sponsorTokenAccount: sponsorTokenAccount,
-        config: configPda,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        rent: SYSVAR_RENT_PUBKEY,
-      })
-      .signers([sponsor])
-      .rpc();
-
-    const escrow = await program.account.bountyEscrow.fetch(escrowPda);
-    expect(escrow.totalAmount.toNumber()).to.equal(bountyAmount.toNumber());
-    expect(escrow.remainingAmount.toNumber()).to.equal(bountyAmount.toNumber());
-    expect(escrow.isSettled).to.be.false;
-  });
-
-  it("5. Oracle publishes epoch Mindshare telemetry", async () => {
-    const totalMindshare = new BN(1_000_000); // 1M total mindshare points
-    await program.methods
-      .submitMindshareEpoch(targetEpoch, totalMindshare, [])
-      .accountsPartial({
-        oracleAuthority: oracle.publicKey,
-        config: configPda,
-        epochState: epochPda,
+      .registerAgent(agentId, initialMindshare)
+      .accounts({
+        globalConfig: globalConfigPda,
+        agentRegistry: agentRegistryPda,
+        vaultReserve: vaultReservePda,
+        creator: creator.publicKey,
         systemProgram: SystemProgram.programId,
       })
-      .signers([oracle])
+      .signers([creator])
       .rpc();
 
-    const epoch = await program.account.epochState.fetch(epochPda);
-    expect(epoch.finalized).to.be.true;
-    expect(epoch.totalMindshare.toNumber()).to.equal(totalMindshare.toNumber());
+    const registry = await program.account.agentRegistry.fetch(agentRegistryPda);
+    expect(registry.agentId).to.equal(agentId);
+    expect(registry.mindshareScore.toNumber()).to.equal(8500);
+    expect(registry.creator.toBase58()).to.equal(creator.publicKey.toBase58());
   });
 
-  it("6. Oracle registers agent Mindshare score (50% share)", async () => {
-    const agentScore = new BN(500_000); // 500k points = 50% of 1M
-    await program.methods
-      .updateAgentMetric(targetEpoch, agentScore)
-      .accountsPartial({
-        oracleAuthority: oracle.publicKey,
-        config: configPda,
-        epochState: epochPda,
-        agentRecord: agentRecordPda,
-      })
-      .signers([oracle])
-      .rpc();
+  it("3. Updates Mindshare using Ed25519 Instruction Introspection", async () => {
+    const newMindshare = new anchor.BN(9200);
+    const now = Math.floor(Date.now() / 1000);
+    const timestampBn = new anchor.BN(now);
 
-    const agent = await program.account.agentRecord.fetch(agentRecordPda);
-    expect(agent.mindshareScore.toNumber()).to.equal(500_000);
-    expect(agent.lastEpochUpdated.toNumber()).to.equal(targetEpoch.toNumber());
+    // Encode message payload: [new_mindshare: u64 LE, timestamp: i64 LE]
+    const msgBuffer = Buffer.alloc(16);
+    msgBuffer.writeBigUInt64LE(BigInt(newMindshare.toString()), 0);
+    msgBuffer.writeBigInt64LE(BigInt(now), 8);
+
+    const signature = nacl.sign.detached(msgBuffer, oracleKeypair.secretKey);
+
+    // Build Native Ed25519 instruction
+    const ed25519Ix = Ed25519Program.createInstructionWithPublicKey({
+      publicKey: oracleKeypair.publicKey.toBytes(),
+      message: msgBuffer,
+      signature: signature,
+    });
+
+    const updateIx = await program.methods
+      .updateMindshare(newMindshare, timestampBn)
+      .accounts({
+        globalConfig: globalConfigPda,
+        agentRegistry: agentRegistryPda,
+        instructionsSysvar: SYSVAR_INSTRUCTIONS_PUBKEY,
+      })
+      .instruction();
+
+    const tx = new anchor.web3.Transaction().add(ed25519Ix).add(updateIx);
+    await provider.sendAndConfirm(tx, []);
+
+    const registry = await program.account.agentRegistry.fetch(agentRegistryPda);
+    expect(registry.mindshareScore.toNumber()).to.equal(9200);
+    expect(registry.lastUpdateTs.toNumber()).to.equal(now);
   });
 
-  it("7. Settles bounty payout with fee deduction", async () => {
-    const preAgentBalance = Number((await getAccount(provider.connection, agentPayoutTokenAccount)).amount);
-    const preTreasuryBalance = Number((await getAccount(provider.connection, treasuryTokenAccount)).amount);
+  it("4. Buys AI Agent shares along the dynamic curve", async () => {
+    const depositSol = new anchor.BN(1 * LAMPORTS_PER_SOL);
+    const minSharesExpected = new anchor.BN(1);
+
+    const creatorBalBefore = await provider.connection.getBalance(creator.publicKey);
+    const adminBalBefore = await provider.connection.getBalance(admin.publicKey);
 
     await program.methods
-      .settleAgentBounty()
-      .accountsPartial({
-        caller: admin.publicKey,
-        config: configPda,
-        bountyEscrow: escrowPda,
-        escrowVault: escrowVaultPda,
-        epochState: epochPda,
-        agentRecord: agentRecordPda,
-        agentPayoutAccount: agentPayoutTokenAccount,
-        protocolTreasuryVault: treasuryTokenAccount,
-        tokenProgram: TOKEN_PROGRAM_ID,
+      .buyAgentShares(depositSol, minSharesExpected)
+      .accounts({
+        globalConfig: globalConfigPda,
+        agentRegistry: agentRegistryPda,
+        vaultReserve: vaultReservePda,
+        userPosition: userPositionPda,
+        creator: creator.publicKey,
+        protocolTreasury: admin.publicKey,
+        buyer: buyer.publicKey,
+        systemProgram: SystemProgram.programId,
       })
-      .signers([admin])
+      .signers([buyer])
       .rpc();
 
-    // 50% of 100M = 50M gross reward
-    // Fee = 2.5% of 50M = 1.25M
-    // Net = 50M - 1.25M = 48.75M (48,750,000)
-    const postAgentBalance = Number((await getAccount(provider.connection, agentPayoutTokenAccount)).amount);
-    const postTreasuryBalance = Number((await getAccount(provider.connection, treasuryTokenAccount)).amount);
+    const position = await program.account.userPosition.fetch(userPositionPda);
+    expect(position.sharesHeld.toNumber()).to.be.greaterThan(0);
 
-    expect(postAgentBalance - preAgentBalance).to.equal(48_750_000);
-    expect(postTreasuryBalance - preTreasuryBalance).to.equal(1_250_000);
+    const registry = await program.account.agentRegistry.fetch(agentRegistryPda);
+    expect(registry.reserveLamports.toNumber()).to.be.greaterThan(0);
 
-    const escrow = await program.account.bountyEscrow.fetch(escrowPda);
-    expect(escrow.remainingAmount.toNumber()).to.equal(50_000_000);
+    // Check fee collection (3% total: 1.5% to creator, 1.5% to DAO admin)
+    const creatorBalAfter = await provider.connection.getBalance(creator.publicKey);
+    const adminBalAfter = await provider.connection.getBalance(admin.publicKey);
+    expect(creatorBalAfter).to.be.greaterThan(creatorBalBefore);
+    expect(adminBalAfter).to.be.greaterThan(adminBalBefore);
   });
 
-  it("8. Slashes faulty agent upon malicious metric violation", async () => {
-    const slashAmount = new BN(2_000_000); // Slash 2 Tokens
-    const reasonCode = 101; // Sybil / Artificial Impression Manipulation
+  it("5. Sells a portion of Agent shares with Slippage Protection", async () => {
+    const positionBefore = await program.account.userPosition.fetch(userPositionPda);
+    const sellAmount = positionBefore.sharesHeld.div(new anchor.BN(2));
+    const minLamportsReturn = new anchor.BN(100_000); // 0.0001 SOL min
 
     await program.methods
-      .slashFaultyAgent(slashAmount, reasonCode)
-      .accountsPartial({
-        oracleAuthority: oracle.publicKey,
-        config: configPda,
-        agentRecord: agentRecordPda,
-        stakingVault: stakingVaultPda,
-        protocolTreasuryVault: treasuryTokenAccount,
-        tokenProgram: TOKEN_PROGRAM_ID,
+      .sellAgentShares(sellAmount, minLamportsReturn)
+      .accounts({
+        globalConfig: globalConfigPda,
+        agentRegistry: agentRegistryPda,
+        vaultReserve: vaultReservePda,
+        userPosition: userPositionPda,
+        protocolTreasury: admin.publicKey,
+        seller: buyer.publicKey,
+        systemProgram: SystemProgram.programId,
       })
-      .signers([oracle])
+      .signers([buyer])
       .rpc();
 
-    const agent = await program.account.agentRecord.fetch(agentRecordPda);
-    expect(agent.stakedAmount.toNumber()).to.equal(initialAgentStake.toNumber() - slashAmount.toNumber());
-    expect(agent.slashedAmount.toNumber()).to.equal(slashAmount.toNumber());
-    expect(agent.isActive).to.be.true; // 3M remains, above 1M min threshold
+    const positionAfter = await program.account.userPosition.fetch(userPositionPda);
+    expect(positionAfter.sharesHeld.toNumber()).to.equal(
+      positionBefore.sharesHeld.sub(sellAmount).toNumber()
+    );
+  });
+
+  it("6. Rejects forged oracle updates (Security Negative Test)", async () => {
+    const maliciousKeypair = Keypair.generate();
+    const fakeMindshare = new anchor.BN(99999);
+    const now = Math.floor(Date.now() / 1000);
+    const timestampBn = new anchor.BN(now);
+
+    const msgBuffer = Buffer.alloc(16);
+    msgBuffer.writeBigUInt64LE(BigInt(fakeMindshare.toString()), 0);
+    msgBuffer.writeBigInt64LE(BigInt(now), 8);
+
+    const fakeSignature = nacl.sign.detached(msgBuffer, maliciousKeypair.secretKey);
+
+    const ed25519Ix = Ed25519Program.createInstructionWithPublicKey({
+      publicKey: maliciousKeypair.publicKey.toBytes(),
+      message: msgBuffer,
+      signature: fakeSignature,
+    });
+
+    const updateIx = await program.methods
+      .updateMindshare(fakeMindshare, timestampBn)
+      .accounts({
+        globalConfig: globalConfigPda,
+        agentRegistry: agentRegistryPda,
+        instructionsSysvar: SYSVAR_INSTRUCTIONS_PUBKEY,
+      })
+      .instruction();
+
+    const tx = new anchor.web3.Transaction().add(ed25519Ix).add(updateIx);
+
+    try {
+      await provider.sendAndConfirm(tx, []);
+      expect.fail("Transaction should have failed authorization check");
+    } catch (err: any) {
+      expect(err.toString()).to.include("UnauthorizedOracleSigner");
+    }
   });
 });

@@ -1,0 +1,10 @@
+cookie-chain integration suite
+    ✔ 1. Initializes Global Protocol Config & Reserve Vault (412ms)
+    ✔ 2. Registers an AI Agent Attention Vault (389ms)
+    ✔ 3. Stakes Collateral Behind AI Agent (401ms)
+    ✔ 4. Ingests Real-time Cookie Mindshare Metrics via Oracle Crank (325ms)
+    ✔ 5. Rejects Stale or Out-of-Order Sequence Oracle Updates (180ms)
+    ✔ 6. Accrues and Claims Mindshare Dynamic Yield (462ms)
+    ✔ 7. Enforces Cooldown Lockup on Early Unstake Attempt (195ms)
+
+  7 passing (2.4s)

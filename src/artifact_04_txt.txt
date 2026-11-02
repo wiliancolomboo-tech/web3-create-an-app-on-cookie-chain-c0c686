@@ -1,0 +1,18 @@
++------------------------------------+---------------------------------------+-------------------------------------------------------------+
+| Threat Vector                      | Severity                              | Mitigation Architecture                                     |
++------------------------------------+---------------------------------------+-------------------------------------------------------------+
+| Oracle Front-Running & Spoofing    | CRITICAL                              | Ed25519 Sysvar Instruction verification requires byte-level |
+|                                    |                                       | signature verification within the same atomic tx slot.      |
++------------------------------------+---------------------------------------+-------------------------------------------------------------+
+| Integer Overflow / Underflow       | HIGH                                  | Strict use of CheckedMath across all bonding curve and      |
+|                                    |                                       | fee distribution algorithms with explicit error returns.    |
++------------------------------------+---------------------------------------+-------------------------------------------------------------+
+| Fake Account Substitution          | CRITICAL                              | Explicit PDA constraint derivation (`seeds = [...]`,        |
+|                                    |                                       | `bump`) and address comparison guards against treasury/pos. |
++------------------------------------+---------------------------------------+-------------------------------------------------------------+
+| Reentrancy via System Transfers    | HIGH                                  | Checks-Effects-Interactions: All internal state variables   |
+|                                    |                                       | are updated before lamport balances are adjusted.          |
++------------------------------------+---------------------------------------+-------------------------------------------------------------+
+| Stale Oracle Replay Attacks        | MEDIUM                                | Timestamps are validated against Clock sysvar (300s window) |
+|                                    |                                       | and forced to be strictly monotonic (`ts > last_update_ts`).|
++------------------------------------+---------------------------------------+-------------------------------------------------------------+

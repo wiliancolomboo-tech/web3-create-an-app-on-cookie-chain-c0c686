@@ -1,0 +1,1 @@
+solana program show $(solana address -k target/deploy/cookie_chain_engine-keypair.json)

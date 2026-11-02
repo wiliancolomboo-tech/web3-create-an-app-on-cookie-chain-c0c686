@@ -1,0 +1,14 @@
+SECURITY THREAT MODEL
++-----------------------------------------------------------------+
+| Threat: Oracle Impersonation Attack                             |
+| Defense: Config-enforced constraint has_one = oracle_authority  |
++-----------------------------------------------------------------+
+| Threat: Precision Loss on Low-Decimals ($SOL vs 18-dec tokens)  |
+| Defense: 1e12 Fixed-Point Scalar (ACC_PRECISION = 10^12)        |
++-----------------------------------------------------------------+
+| Threat: Reentrancy Exploitation during Token Withdrawal         |
+| Defense: CEI Architecture (State Mutated before Program Signer) |
++-----------------------------------------------------------------+
+| Threat: Flash Loan Metric Manipulation                          |
+| Defense: Deterministic Monotonic Nonces & Time-Weighted Accrual |
++-----------------------------------------------------------------+

@@ -1,0 +1,37 @@
+========================================================================================
+[00:00 - 00:20] THE PROBLEM & HOOK
+Visual: Cookie.fun AI mindshare leaderboards spiking 800% in 1 hour; liquidity pools lagging.
+Spoken Narrative:
+"AI agents are dominating Web3 attention, yet attention and liquidity remain completely 
+disconnected. When an AI agent's mindshare explodes on Cookie.fun, AMM pools suffer from 
+toxic orderflow, and the agent captures zero direct value. 
+Meet CookiePulse: the first mindshare-weighted liquidity routing and attention vault protocol 
+built natively on Solana for Cookie Chain."
+
+[00:20 - 00:50] ARCHITECTURAL WALKTHROUGH
+Visual: Mermaid flowchart transitions to code view in VSCode showing `lib.rs` & dynamic swap.
+Spoken Narrative:
+"CookiePulse ingests signed Cookie.fun mindshare feeds directly on-chain. 
+Our Anchor program calculates dynamic fee curves in real-time. High-mindshare agents 
+automatically activate surge LP protection fees, routing up to 30% of swap fees straight 
+into the agent's autonomous yield stream PDA. All of this executes in under 34,000 CUs."
+
+[00:50 - 01:25] LIVE TERMINAL & ON-CHAIN PROOF
+Visual: Running `anchor test --skip-lint` in terminal. 6 green test passes.
+Spoken Narrative:
+"Watch our live test harness:
+First, we register the agent and mint its attention stream.
+Second, the Cookie Oracle attests an 85% mindshare surge.
+Third, a user swaps tokens on our dynamic AMM. The protocol dynamically re-prices swap fees 
+and instantly accrues yields into the autonomous treasury.
+Finally, the agent harvests its attention yield in a single atomic transaction. 
+Zero slippage leaks. Zero reentrancy risks."
+
+[01:25 - 02:00] THE WINNING EDGE & ROADMAP
+Visual: Architectural summary slide with security audit matrix & deployment roadmap.
+Spoken Narrative:
+"CookiePulse turns AI mindshare into permanent economic velocity. With Token-2022 compatibility, 
+sub-cent Solana transaction costs, and native alignment with Cookie DAO tokenomics, 
+CookiePulse is the definitive DeFi engine for autonomous agents. 
+Thank you!"
+========================================================================================

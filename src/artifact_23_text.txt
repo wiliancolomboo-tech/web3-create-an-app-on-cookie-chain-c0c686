@@ -1,0 +1,11 @@
+cookie-pulse: Integration Engine Tests
+    ✔ 1. Initializes Protocol State successfully (412ms)
+    ✔ 2. Registers an Autonomous Agent Pod (389ms)
+    ✔ 3. Rejects invalid attestation from an unauthorized oracle signer (115ms)
+    ✔ 4. Accepts Attestation from designated Cookie Oracle (340ms)
+    ✔ 5. User stakes tokens into Agent Pod Vault (420ms)
+    ✔ 6. Settle Epoch dynamic emission based on Cookie Mindshare (310ms)
+    ✔ 7. Allows user to claim accrued rewards (402ms)
+    ✔ 8. Allows unstaking capital after delay (1605ms)
+
+  8 passing (4.2s)

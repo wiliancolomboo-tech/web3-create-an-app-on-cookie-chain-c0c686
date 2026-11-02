@@ -1,0 +1,21 @@
++------------------------------------+-------------------------------------------+-----------------------------------------------+
+| Threat Vector                      | Potential Severity                        | CookiePulse Hardened Mitigation               |
++------------------------------------+-------------------------------------------+-----------------------------------------------+
+| Oracle Spoofing / Data Forgery     | CRITICAL (Vault Drainage)                 | Solana Native Ed25519Program precompile       |
+|                                    |                                           | introspection. Verifies off-chain signature   |
+|                                    |                                           | match before mutable state access.            |
++------------------------------------+-------------------------------------------+-----------------------------------------------+
+| Cross-Agent State Injection        | HIGH (Parameter Overwrite)                | PDAs derived from unique `agent_uuid` and     |
+|                                    |                                           | static seed prefixes. Cross-checks            |
+|                                    |                                           | `has_one = config` and `has_one = authority`. |
++------------------------------------+-------------------------------------------+-----------------------------------------------+
+| Stale Epoch / Replay Attacks       | HIGH (Manipulated Yield APY)              | Monotonically increasing `nonce` counter      |
+|                                    |                                           | combined with strict `clock.unix_timestamp`   |
+|                                    |                                           | delta checks `<= max_staleness_seconds`.      |
++------------------------------------+-------------------------------------------+-----------------------------------------------+
+| Precision Truncation Vulnerability | MEDIUM (Reward Leakage)                   | Scaled fixed-point arithmetic (`1e18` PREC)   |
+|                                    |                                           | for reward debts. Checked math on all paths.  |
++------------------------------------+-------------------------------------------+-----------------------------------------------+
+| Missing Signer / Ownership Hijack  | CRITICAL (Unauthorized Unstaking)         | Anchor `Signer<'info>` validation on user ATA |
+|                                    |                                           | and PDA `has_one = user` checks.              |
++------------------------------------+-------------------------------------------+-----------------------------------------------+

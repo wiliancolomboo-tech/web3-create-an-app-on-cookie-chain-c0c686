@@ -1,0 +1,11 @@
+CookieAgent Protocol Test Suite
+    ✔ 1. Initializes global protocol configuration (412ms)
+    ✔ 2. Registers an autonomous AI Agent (285ms)
+    ✔ 3. Updates AI Agent Mindshare via Oracle Attestation (248ms)
+    ✔ 4. Fails when unauthorized signer attempts Mindshare update (198ms)
+    ✔ 5. Creates an autonomous Task with token escrow vault (510ms)
+    ✔ 6. AI Agent claims execution lock on Task (232ms)
+    ✔ 7. AI Agent completes task and receives settled bounty minus protocol fee (490ms)
+    ✔ 8. Validates task cancellation safeguards on unexpired tasks (315ms)
+
+  8 passing (3s)

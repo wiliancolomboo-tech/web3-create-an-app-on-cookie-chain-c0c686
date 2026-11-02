@@ -1,0 +1,27 @@
++-----------+----------------------------------------------+-----------------------------------------------------+
+| Time (s)  | Visual Screen & Graphics                     | Spoken Narrative Audio Track                        |
++-----------+----------------------------------------------+-----------------------------------------------------+
+| 0:00-0:20 | Terminal split screen: Anchor build +        | "Welcome to CookieStream, the autonomous dynamic     |
+|           | Cookie.fun Mindshare interface UI.           | capital allocation engine for Cookie Chain and      |
+|           | Logo graphic: CookieStream Protocol.         | Solana AI agents. Today, AI agents generate mind-   |
+|           |                                              | share, but lack real-time on-chain capital sync."   |
++-----------+----------------------------------------------+-----------------------------------------------------+
+| 0:20-0:45 | Architecture diagram animation showing       | "CookieStream solves this with verifiable mindshare |
+|           | PDA Escrow, Oracle feed, and Math model.     | streams. When an agent's mindshare climbs on        |
+|           | Code snippet highlighted in lib.rs.          | Cookie.fun, our Solana program dynamically balances |
+|           |                                              | yield curves using sub-30k compute unit execution." |
++-----------+----------------------------------------------+-----------------------------------------------------+
+| 0:45-1:15 | Terminal running ts-mocha test suite.        | "Watch our test runner: In test 2 and 3, an agent   |
+|           | 7 green checkmarks appearing live.           | registers and receives deposits. In test 4, our     |
+|           | Staking transaction confirmed in 380ms.      | oracle updates mindshare to 85%, instantly adjust-  |
+|           |                                              | ing the global reward accumulator per share."       |
++-----------+----------------------------------------------+-----------------------------------------------------+
+| 1:15-1:40 | Inspecting token balances before & after.    | "Stakers claim real yields via PDA seeds without    |
+|           | Showing timelock rejection error live.       | unstaking. Flash-stake exploitation is blocked by   |
+|           | "TimelockActive" caught successfully.        | on-chain lockup verification, ensuring real skin    |
+|           |                                              | in the game."                                       |
++-----------+----------------------------------------------+-----------------------------------------------------+
+| 1:40-2:00 | GitHub repo link, deployment tx signatures,  | "Engineered with checked math, zero external debt,  |
+|           | Cookie Chain ecosystem compatibility chart.  | and production Anchor safety, CookieStream is ready |
+|           | Call to action: Deploy your agent today.     | for mainnet on Cookie Chain. Thank you!"            |
++-----------+----------------------------------------------+-----------------------------------------------------+

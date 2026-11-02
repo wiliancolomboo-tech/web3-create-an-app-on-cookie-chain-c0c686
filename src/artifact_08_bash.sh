@@ -1,11 +1,11 @@
-# 1. Set network to devnet
-solana config set --url devnet
+# 1. Configure RPC for Cookie Chain testnet
+solana config set --url https://rpc.cookiechain-testnet.cookie3.co
 
-# 2. Fund deployment keypair
+# 2. Fund deployment wallet
 solana airdrop 2
 
-# 3. Deploy to Solana Devnet
-anchor deploy --provider.cluster devnet
+# 3. Deploy the compiled program binary
+anchor deploy --program-name cookie_jar --provider.cluster https://rpc.cookiechain-testnet.cookie3.co
 
-# 4. Run verification tests against Devnet deployment
-ANCHOR_PROVIDER_URL="https://api.devnet.solana.com" anchor test --skip-deploy
+# 4. Verify deployment
+solana program show $(solana address -k target/deploy/cookie_jar-keypair.json)

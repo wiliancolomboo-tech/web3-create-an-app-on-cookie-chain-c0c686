@@ -1,0 +1,65 @@
+flowchart TD
+    subgraph Client Layer
+        A1[AI Agent Swarm Node]
+        A2[Cookie Data Feed / Oracle Keeper]
+        A3[Liquidity Provider / Trader]
+    end
+
+    subgraph Solana Program Runtime ["CookieMind Program (Anchor / Sealevel Engine)"]
+        direction TB
+        
+        subgraph Program Entrypoints
+            IX1["initialize_protocol()"]
+            IX2["register_agent()"]
+            IX3["update_mindshare_epoch()"]
+            IX4["deposit_liquidity()"]
+            IX5["claim_yield()"]
+            IX6["crank_settlement()"]
+        end
+
+        subgraph State Accounts & PDAs
+            PDA_CONFIG[("GlobalConfig PDA<br>['config']")]
+            PDA_AGENT[("AgentRegistry PDA<br>['agent', agent_id]")]
+            PDA_EPOCH[("EpochMindshare PDA<br>['epoch', epoch_id, agent_id]")]
+            PDA_VAULT[("LiquidityVault PDA<br>['vault', mint]")]
+            PDA_POSITION[("UserPosition PDA<br>['position', user, agent_id]")]
+        end
+
+        subgraph Security & Verification Guards
+            SEC1{"Authority & Signer Validation"}
+            SEC2{"Epoch Window & Replay Guard"}
+            SEC3{"Checked Math & Overflow Guard"}
+            SEC4{"Rent-Exempt & Account Ownership Guard"}
+        end
+
+        subgraph CPI Execution Engine
+            CPI_SPL["SPL Token / Token-2022 Transfer"]
+            CPI_MINT["Dynamic Yield Mint / Burn CPI"]
+        end
+    end
+
+    subgraph On-Chain State & Token Vaults
+        VAULT_TOKEN_ACC[("Vault SPL Token Account")]
+        USER_TOKEN_ACC[("User SPL Token Account")]
+        FEE_SINK[("Agent Fee / Buyback Sink")]
+    end
+
+    A2 -->|Signs Mindshare Telemetry| IX3
+    A3 -->|Deposits Collateral| IX4
+    A1 -->|Registers Agent Identity| IX2
+    A3 -->|Harvests Mindshare Yield| IX5
+
+    IX1 --> SEC1 --> PDA_CONFIG
+    IX2 --> SEC1 --> PDA_AGENT
+    IX3 --> SEC2 --> PDA_EPOCH
+    IX4 --> SEC3 --> PDA_POSITION
+    IX5 --> SEC3 --> CPI_SPL
+    IX6 --> SEC4 --> CPI_MINT
+
+    PDA_CONFIG -.-> PDA_AGENT
+    PDA_AGENT -.-> PDA_EPOCH
+    PDA_POSITION -.-> PDA_VAULT
+
+    CPI_SPL --> VAULT_TOKEN_ACC
+    CPI_SPL --> USER_TOKEN_ACC
+    CPI_MINT --> FEE_SINK

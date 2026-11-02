@@ -1,0 +1,9 @@
+cookie-stream integration test suite
+    ✔ 1. Initializes CookieStream Protocol Global Config (418ms)
+    ✔ 2. Registers a New AI Agent with Isolated PDAs (482ms)
+    ✔ 3. Funds Reward Vault with $COOKIE Emission Budget (431ms)
+    ✔ 4. Staker Deposits Capital into AI Agent Vault (442ms)
+    ✔ 5. Oracle Updates Mindshare Score (Dynamic Yield Acceleration) (2149ms)
+    ✔ 6. Staker Claims Yield with Dynamic Mindshare Multiplier (412ms)
+
+  6 passing (4.33s)

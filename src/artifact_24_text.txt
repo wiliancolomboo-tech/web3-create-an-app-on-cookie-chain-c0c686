@@ -1,0 +1,10 @@
+CookieJAR Protocol QA Suite
+    ✔ 1. Initializes Protocol successfully with parameters (382ms)
+    ✔ 2. Registers an AI Agent with IPFS metadata URI (215ms)
+    ✔ 3. Delegates stake behind Agent and updates vault token balances (298ms)
+    ✔ 4. Rejects Oracle telemetry updates from unauthorized signers (112ms)
+    ✔ 5. Updates Cookie Mindshare Score from authorized Oracle relayer (180ms)
+    ✔ 6. Settles Epoch #1, distributes rewards according to MVWAP logic (310ms)
+    ✔ 7. Delegator claims accrued epoch rewards (245ms)
+
+  7 passing (2s)

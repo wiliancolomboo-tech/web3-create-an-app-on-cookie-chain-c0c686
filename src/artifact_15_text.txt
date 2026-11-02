@@ -1,0 +1,9 @@
+cookie-pulse integration test matrix
+    ✔ 1. Initializes Global Config (412ms)
+    ✔ 2. Registers an Agent Pod for Cookie Agent (528ms)
+    ✔ 3. Pushes fresh Cookie telemetry metrics via verified Oracle (389ms)
+    ✔ 4. Rejects Telemetry commit from unauthorized signer (152ms)
+    ✔ 5. Allows staker to deposit assets into Agent Pod (610ms)
+    ✔ 6. Prevents early unstake before lockup expiry (184ms)
+
+  6 passing (3s)

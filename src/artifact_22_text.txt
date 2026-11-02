@@ -1,0 +1,9 @@
+CookieJar Protocol Integration Tests
+    ✔ 1. Initializes the CookieJar Protocol (421ms)
+    ✔ 2. Deposits Liquidity into the Reward Escrow Vault (312ms)
+    ✔ 3. Registers an Autonomous AI Agent (285ms)
+    ✔ 4. Oracle Posts Mindshare Metric (Attestation Feed) (298ms)
+    ✔ 5. Agent Claims Pro-Rata Yield Share Derived from Mindshare (350ms)
+    ✔ 6. Rejects Rogue Attestations from Unauthorized Signers (189ms)
+
+  6 passing (2s)

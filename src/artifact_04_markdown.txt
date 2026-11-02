@@ -1,0 +1,14 @@
++-------------------------------+-----------------------------------+---------------------------------------------------------+
+| Threat Vector                 | Risk Severity                     | CookiePulse Hardened Mitigation                         |
++-------------------------------+-----------------------------------+---------------------------------------------------------+
+| Stale Oracle Front-Running    | CRITICAL                          | Math enforces clock drift constraints (elapsed >= 0).   |
+|                               |                                   | State updates must occur prior to param mutations.       |
+| Reentrancy via Token CPI      | CRITICAL                          | Checks-Effects-Interactions pattern:                    |
+|                               |                                   | user_stake.amount updated BEFORE token transfer CPI.    |
+| PDA Substitution / Spoofing   | HIGH                              | Strict canonical bump validation and compound seeds:     |
+|                               |                                   | [b"agent", agent_id], [b"vault", agent_id].             |
+| Decimal Precision Loss        | HIGH                              | Fixed-point scaling via 1e12 (PRECISION_FACTOR).         |
+| Integer Overflow/Underflow    | CRITICAL                          | 100% safe arithmetic using checked_mul / checked_add.    |
+| Flash Loan Mindshare Exploits | MEDIUM                            | Time-weighted integral rewards: instantaneous deposits  |
+|                               |                                   | yield 0 pending rewards until time elapses.             |
++-------------------------------+-----------------------------------+---------------------------------------------------------+

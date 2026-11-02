@@ -1,372 +1,310 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_lang::solana_program::{
+    instruction::Instruction,
+    sysvar::instructions::{load_current_index_checked, load_instruction_at_checked, ID as IX_SYSVAR_ID},
+};
 
-declare_id!("Cook1eJar11111111111111111111111111111111111");
+declare_id!("CookiEX3M7L99Z1FzP7E3rXQYxV58Z8g6L6rUu44gNn");
 
-pub const CONFIG_SEED: &[u8] = b"config";
-pub const AGENT_SEED: &[u8] = b"agent";
-pub const ESCROW_SEED: &[u8] = b"escrow";
-pub const ESCROW_VAULT_SEED: &[u8] = b"escrow_vault";
-pub const STAKING_VAULT_SEED: &[u8] = b"staking_vault";
-pub const EPOCH_SEED: &[u8] = b"epoch";
+pub const GLOBAL_CONFIG_SEED: &[u8] = b"global_config";
+pub const AGENT_REGISTRY_SEED: &[u8] = b"agent_registry";
+pub const VAULT_RESERVE_SEED: &[u8] = b"vault_reserve";
+pub const USER_POSITION_SEED: &[u8] = b"user_position";
 
-pub const MAX_FEE_BPS: u16 = 1000; // Maximum 10% protocol fee
-pub const BPS_DENOMINATOR: u128 = 10000;
-pub const MIN_STAKE_AMOUNT: u64 = 1_000_000; // 1 Token with 6 decimals
+pub const MAX_FEE_BPS: u16 = 1000; // 10%
+pub const SCALING_FACTOR: u128 = 1_000_000_000; // 1e9 precision
 
 #[program]
-pub mod cookie_jar {
+pub mod cookie_chain {
     use super::*;
 
-    /// Initializes the global configuration of the Cookie Jar protocol.
     pub fn initialize_protocol(
         ctx: Context<InitializeProtocol>,
         fee_bps: u16,
         oracle_signer: Pubkey,
     ) -> Result<()> {
-        require!(fee_bps <= MAX_FEE_BPS, CookieJarError::FeeTooHigh);
-        
-        let config = &mut ctx.accounts.config;
+        require!(fee_bps <= MAX_FEE_BPS, CookieError::FeeExceedsMaximum);
+        let config = &mut ctx.accounts.global_config;
         config.admin = ctx.accounts.admin.key();
         config.oracle_signer = oracle_signer;
-        config.protocol_fee_bps = fee_bps;
-        config.total_agents_registered = 0;
-        config.total_bounties_created = 0;
-        config.bump = ctx.bumps.config;
+        config.fee_bps = fee_bps;
+        config.bump = ctx.bumps.global_config;
+        config.total_agents = 0;
 
         emit!(ProtocolInitialized {
             admin: config.admin,
             oracle_signer,
             fee_bps,
         });
-
         Ok(())
     }
 
-    /// Registers an autonomous agent with metadata and initializes its staking account.
     pub fn register_agent(
         ctx: Context<RegisterAgent>,
         agent_id: String,
-        metadata_uri: String,
+        initial_mindshare: u64,
     ) -> Result<()> {
-        require!(agent_id.len() <= 64, CookieJarError::IdentifierTooLong);
-        require!(metadata_uri.len() <= 128, CookieJarError::IdentifierTooLong);
+        require!(agent_id.len() <= 32, CookieError::AgentIdTooLong);
+        require!(initial_mindshare > 0, CookieError::InvalidMindshareScore);
 
-        let agent = &mut ctx.accounts.agent_record;
-        let config = &mut ctx.accounts.config;
+        let registry = &mut ctx.accounts.agent_registry;
+        registry.creator = ctx.accounts.creator.key();
+        registry.agent_id = agent_id.clone();
+        registry.mindshare_score = initial_mindshare;
+        registry.total_shares = 0;
+        registry.reserve_lamports = 0;
+        registry.last_update_ts = Clock::get()?.unix_timestamp;
+        registry.bump = ctx.bumps.agent_registry;
+        registry.vault_bump = ctx.bumps.vault_reserve;
 
-        agent.owner = ctx.accounts.agent_owner.key();
-        agent.mint = ctx.accounts.staking_mint.key();
-        agent.agent_id = agent_id;
-        agent.metadata_uri = metadata_uri;
-        agent.mindshare_score = 0;
-        agent.last_epoch_updated = 0;
-        agent.staked_amount = 0;
-        agent.slashed_amount = 0;
-        agent.is_active = true;
-        agent.bump = ctx.bumps.agent_record;
-        agent.vault_bump = ctx.bumps.staking_vault;
-
-        config.total_agents_registered = config
-            .total_agents_registered
-            .checked_add(1)
-            .ok_or(CookieJarError::MathOverflow)?;
+        let config = &mut ctx.accounts.global_config;
+        config.total_agents = config.total_agents.checked_add(1).ok_or(CookieError::MathOverflow)?;
 
         emit!(AgentRegistered {
-            agent_pubkey: agent.key(),
-            owner: agent.owner,
-            agent_id: agent.agent_id.clone(),
+            agent_id,
+            creator: registry.creator,
+            initial_mindshare,
         });
-
         Ok(())
     }
 
-    /// Stakes collateral for an AI agent to establish economic security.
-    pub fn stake_collateral(ctx: Context<StakeCollateral>, amount: u64) -> Result<()> {
-        require!(amount >= MIN_STAKE_AMOUNT, CookieJarError::StakeTooLow);
-
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.funder_token_account.to_account_info(),
-            to: ctx.accounts.staking_vault.to_account_info(),
-            authority: ctx.accounts.funder.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        token::transfer(CpiContext::new(cpi_program, cpi_accounts), amount)?;
-
-        let agent = &mut ctx.accounts.agent_record;
-        agent.staked_amount = agent
-            .staked_amount
-            .checked_add(amount)
-            .ok_or(CookieJarError::MathOverflow)?;
-
-        emit!(AgentStaked {
-            agent: agent.key(),
-            amount,
-            total_staked: agent.staked_amount,
-        });
-
-        Ok(())
-    }
-
-    /// Creates a sponsor-funded campaign escrow targeting AI agent mindshare.
-    pub fn create_escrow(
-        ctx: Context<CreateEscrow>,
-        escrow_id: u64,
-        amount: u64,
-        target_epoch: u64,
+    pub fn update_agent_mindshare(
+        ctx: Context<UpdateMindshare>,
+        new_mindshare: u64,
+        timestamp: i64,
     ) -> Result<()> {
-        require!(amount > 0, CookieJarError::ZeroAmount);
-        
-        // Transfer bounty tokens to escrow vault PDA
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.sponsor_token_account.to_account_info(),
-            to: ctx.accounts.escrow_vault.to_account_info(),
-            authority: ctx.accounts.sponsor.to_account_info(),
-        };
-        token::transfer(
-            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts),
-            amount,
+        let clock = Clock::get()?;
+        require!(
+            timestamp <= clock.unix_timestamp + 60 && timestamp >= clock.unix_timestamp - 300,
+            CookieError::TimestampExpired
+        );
+
+        // Security check: Validate Ed25519 signature instruction on Instructions Sysvar
+        verify_ed25519_ix(
+            &ctx.accounts.instructions_sysvar.to_account_info(),
+            &ctx.accounts.global_config.oracle_signer.to_bytes(),
+            &new_mindshare.to_le_bytes(),
+            timestamp,
         )?;
 
-        let escrow = &mut ctx.accounts.bounty_escrow;
-        let config = &mut ctx.accounts.config;
+        let registry = &mut ctx.accounts.agent_registry;
+        require!(timestamp > registry.last_update_ts, CookieError::StaleDataSubmitted);
 
-        escrow.sponsor = ctx.accounts.sponsor.key();
-        escrow.escrow_id = escrow_id;
-        escrow.mint = ctx.accounts.mint.key();
-        escrow.total_amount = amount;
-        escrow.remaining_amount = amount;
-        escrow.target_epoch = target_epoch;
-        escrow.is_settled = false;
-        escrow.bump = ctx.bumps.bounty_escrow;
-        escrow.vault_bump = ctx.bumps.escrow_vault;
+        let old_mindshare = registry.mindshare_score;
+        registry.mindshare_score = new_mindshare;
+        registry.last_update_ts = timestamp;
 
-        config.total_bounties_created = config
-            .total_bounties_created
-            .checked_add(1)
-            .ok_or(CookieJarError::MathOverflow)?;
-
-        emit!(EscrowCreated {
-            escrow_id,
-            sponsor: escrow.sponsor,
-            amount,
-            target_epoch,
+        emit!(MindshareUpdated {
+            agent_id: registry.agent_id.clone(),
+            old_mindshare,
+            new_mindshare,
+            timestamp,
         });
 
         Ok(())
     }
 
-    /// Oracle submission of epoch mindshare telemetry.
-    pub fn submit_mindshare_epoch(
-        ctx: Context<SubmitMindshareEpoch>,
-        epoch_id: u64,
-        total_epoch_mindshare: u64,
-        agent_scores: Vec<AgentMindshareEntry>,
+    pub fn buy_agent_shares(
+        ctx: Context<BuyAgentShares>,
+        lamports_in: u64,
+        min_shares_out: u64,
     ) -> Result<()> {
-        require!(
-            ctx.accounts.oracle_authority.key() == ctx.accounts.config.oracle_signer,
-            CookieJarError::UnauthorizedOracle
-        );
-        require!(total_epoch_mindshare > 0, CookieJarError::InvalidTelemetry);
+        require!(lamports_in > 0, CookieError::ZeroAmount);
+        let registry = &mut ctx.accounts.agent_registry;
+        let config = &ctx.accounts.global_config;
 
-        let epoch = &mut ctx.accounts.epoch_state;
-        require!(!epoch.finalized, CookieJarError::EpochAlreadyFinalized);
+        // Protocol & Creator fee breakdown (total fee_bps / 2 to creator, half to DAO)
+        let total_fee = (lamports_in as u128)
+            .checked_mul(config.fee_bps as u128)
+            .ok_or(CookieError::MathOverflow)?
+            .checked_div(10000)
+            .ok_or(CookieError::MathOverflow)? as u64;
 
-        epoch.epoch_id = epoch_id;
-        epoch.total_mindshare = total_epoch_mindshare;
-        epoch.finalized = true;
-        epoch.bump = ctx.bumps.epoch_state;
+        let net_deposit = lamports_in
+            .checked_sub(total_fee)
+            .ok_or(CookieError::MathOverflow)?;
 
-        emit!(EpochFinalized {
-            epoch_id,
-            total_mindshare: total_epoch_mindshare,
-            entries_count: agent_scores.len() as u32,
-        });
+        let creator_fee = total_fee / 2;
+        let protocol_fee = total_fee.checked_sub(creator_fee).ok_or(CookieError::MathOverflow)?;
 
-        Ok(())
-    }
-
-    /// Updates an individual agent's validated mindshare score for a finalized epoch.
-    pub fn update_agent_metric(
-        ctx: Context<UpdateAgentMetric>,
-        epoch_id: u64,
-        mindshare_score: u64,
-    ) -> Result<()> {
-        require!(
-            ctx.accounts.oracle_authority.key() == ctx.accounts.config.oracle_signer,
-            CookieJarError::UnauthorizedOracle
-        );
-        let epoch = &ctx.accounts.epoch_state;
-        require!(epoch.finalized, CookieJarError::EpochNotFinalized);
-        require!(epoch.epoch_id == epoch_id, CookieJarError::EpochMismatch);
-
-        let agent = &mut ctx.accounts.agent_record;
-        require!(agent.is_active, CookieJarError::AgentInactive);
-
-        agent.mindshare_score = mindshare_score;
-        agent.last_epoch_updated = epoch_id;
-
-        emit!(AgentScoreUpdated {
-            agent: agent.key(),
-            epoch_id,
-            mindshare_score,
-        });
-
-        Ok(())
-    }
-
-    /// Settles bounty payout to an agent based on verified mindshare fraction.
-    pub fn settle_agent_bounty(ctx: Context<SettleAgentBounty>) -> Result<()> {
-        let escrow = &mut ctx.accounts.bounty_escrow;
-        let epoch = &ctx.accounts.epoch_state;
-        let agent = &ctx.accounts.agent_record;
-        let config = &ctx.accounts.config;
-
-        require!(!escrow.is_settled, CookieJarError::EscrowAlreadySettled);
-        require!(epoch.finalized, CookieJarError::EpochNotFinalized);
-        require!(escrow.target_epoch == epoch.epoch_id, CookieJarError::EpochMismatch);
-        require!(agent.last_epoch_updated == epoch.epoch_id, CookieJarError::TelemetryStale);
-        require!(agent.is_active, CookieJarError::AgentInactive);
-        require!(epoch.total_mindshare > 0, CookieJarError::InvalidTelemetry);
-
-        // Calculate Pro-Rata Share: Reward = (RemainingEscrow * AgentMindshare) / TotalMindshare
-        let gross_reward = (escrow.remaining_amount as u128)
-            .checked_mul(agent.mindshare_score as u128)
-            .ok_or(CookieJarError::MathOverflow)?
-            .checked_div(epoch.total_mindshare as u128)
-            .ok_or(CookieJarError::MathOverflow)? as u64;
-
-        require!(gross_reward > 0, CookieJarError::RewardTooSmall);
-
-        // Protocol fee calculation
-        let fee_amount = (gross_reward as u128)
-            .checked_mul(config.protocol_fee_bps as u128)
-            .ok_or(CookieJarError::MathOverflow)?
-            .checked_div(BPS_DENOMINATOR)
-            .ok_or(CookieJarError::MathOverflow)? as u64;
-
-        let net_agent_payout = gross_reward
-            .checked_sub(fee_amount)
-            .ok_or(CookieJarError::MathOverflow)?;
-
-        // Execute Escrow Vault transfers using Escrow PDA signer seeds
-        let sponsor_key = escrow.sponsor;
-        let escrow_id_bytes = escrow.escrow_id.to_le_bytes();
-        let escrow_seeds = &[
-            ESCROW_SEED,
-            sponsor_key.as_ref(),
-            escrow_id_bytes.as_ref(),
-            &[escrow.bump],
-        ];
-        let signer = &[&escrow_seeds[..]];
-
-        // 1. Transfer net payout to agent owner wallet
-        let cpi_agent_transfer = Transfer {
-            from: ctx.accounts.escrow_vault.to_account_info(),
-            to: ctx.accounts.agent_payout_account.to_account_info(),
-            authority: ctx.accounts.bounty_escrow.to_account_info(),
-        };
-        token::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                cpi_agent_transfer,
-                signer,
-            ),
-            net_agent_payout,
+        // Execute dynamic bonding curve pricing calculation
+        let shares_to_mint = calculate_purchase_return(
+            registry.total_shares,
+            registry.reserve_lamports,
+            registry.mindshare_score,
+            net_deposit,
         )?;
 
-        // 2. Transfer fee to protocol treasury
-        if fee_amount > 0 {
-            let cpi_fee_transfer = Transfer {
-                from: ctx.accounts.escrow_vault.to_account_info(),
-                to: ctx.accounts.protocol_treasury_vault.to_account_info(),
-                authority: ctx.accounts.bounty_escrow.to_account_info(),
-            };
-            token::transfer(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    cpi_fee_transfer,
-                    signer,
+        require!(shares_to_mint >= min_shares_out, CookieError::SlippageExceeded);
+
+        // Route SOL fees & deposit
+        if creator_fee > 0 {
+            anchor_lang::solana_program::program::invoke(
+                &anchor_lang::solana_program::system_instruction::transfer(
+                    &ctx.accounts.buyer.key(),
+                    &ctx.accounts.creator.key(),
+                    creator_fee,
                 ),
-                fee_amount,
+                &[
+                    ctx.accounts.buyer.to_account_info(),
+                    ctx.accounts.creator.to_account_info(),
+                    ctx.accounts.system_program.to_account_info(),
+                ],
             )?;
         }
 
-        escrow.remaining_amount = escrow
-            .remaining_amount
-            .checked_sub(gross_reward)
-            .ok_or(CookieJarError::MathOverflow)?;
-
-        if escrow.remaining_amount == 0 {
-            escrow.is_settled = true;
+        if protocol_fee > 0 {
+            anchor_lang::solana_program::program::invoke(
+                &anchor_lang::solana_program::system_instruction::transfer(
+                    &ctx.accounts.buyer.key(),
+                    &ctx.accounts.protocol_treasury.key(),
+                    protocol_fee,
+                ),
+                &[
+                    ctx.accounts.buyer.to_account_info(),
+                    ctx.accounts.protocol_treasury.to_account_info(),
+                    ctx.accounts.system_program.to_account_info(),
+                ],
+            )?;
         }
 
-        emit!(BountySettled {
-            escrow: escrow.key(),
-            agent: agent.key(),
-            gross_amount: gross_reward,
-            fee: fee_amount,
-            net_amount: net_agent_payout,
+        // Transfer net lamports to reserve vault
+        anchor_lang::solana_program::program::invoke(
+            &anchor_lang::solana_program::system_instruction::transfer(
+                &ctx.accounts.buyer.key(),
+                &ctx.accounts.vault_reserve.to_account_info(),
+                net_deposit,
+            ),
+            &[
+                ctx.accounts.buyer.to_account_info(),
+                ctx.accounts.vault_reserve.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+
+        // Mutate registry and user balances
+        registry.reserve_lamports = registry
+            .reserve_lamports
+            .checked_add(net_deposit)
+            .ok_or(CookieError::MathOverflow)?;
+        registry.total_shares = registry
+            .total_shares
+            .checked_add(shares_to_mint)
+            .ok_or(CookieError::MathOverflow)?;
+
+        let user_pos = &mut ctx.accounts.user_position;
+        user_pos.shares_held = user_pos
+            .shares_held
+            .checked_add(shares_to_mint)
+            .ok_or(CookieError::MathOverflow)?;
+        user_pos.owner = ctx.accounts.buyer.key();
+        user_pos.agent_registry = registry.key();
+
+        emit!(SharesPurchased {
+            agent_id: registry.agent_id.clone(),
+            buyer: ctx.accounts.buyer.key(),
+            lamports_spent: lamports_in,
+            shares_minted: shares_to_mint,
+            reserve_balance: registry.reserve_lamports,
         });
 
         Ok(())
     }
 
-    /// Slashes an agent's staked bond upon detected malicious behavior (e.g., sybil manipulation).
-    pub fn slash_faulty_agent(
-        ctx: Context<SlashFaultyAgent>,
-        slash_amount: u64,
-        reason_code: u8,
+    pub fn sell_agent_shares(
+        ctx: Context<SellAgentShares>,
+        shares_in: u64,
+        min_lamports_out: u64,
     ) -> Result<()> {
-        require!(
-            ctx.accounts.oracle_authority.key() == ctx.accounts.config.oracle_signer,
-            CookieJarError::UnauthorizedOracle
-        );
+        require!(shares_in > 0, CookieError::ZeroAmount);
+        let user_pos = &mut ctx.accounts.user_position;
+        require!(user_pos.shares_held >= shares_in, CookieError::InsufficientShares);
 
-        let agent = &mut ctx.accounts.agent_record;
-        require!(agent.staked_amount >= slash_amount, CookieJarError::InsufficientStake);
+        let registry = &mut ctx.accounts.agent_registry;
 
-        let agent_owner = agent.owner;
-        let staking_seeds = &[
-            AGENT_SEED,
-            agent_owner.as_ref(),
-            &[agent.bump],
-        ];
-        let signer = &[&staking_seeds[..]];
-
-        let cpi_slash = Transfer {
-            from: ctx.accounts.staking_vault.to_account_info(),
-            to: ctx.accounts.protocol_treasury_vault.to_account_info(),
-            authority: ctx.accounts.agent_record.to_account_info(),
-        };
-
-        token::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                cpi_slash,
-                signer,
-            ),
-            slash_amount,
+        // Liquidation value computation
+        let gross_lamports_out = calculate_liquidation_return(
+            registry.total_shares,
+            registry.reserve_lamports,
+            registry.mindshare_score,
+            shares_in,
         )?;
 
-        agent.staked_amount = agent
-            .staked_amount
-            .checked_sub(slash_amount)
-            .ok_or(CookieJarError::MathOverflow)?;
-        agent.slashed_amount = agent
-            .slashed_amount
-            .checked_add(slash_amount)
-            .ok_or(CookieJarError::MathOverflow)?;
+        let config = &ctx.accounts.global_config;
+        let total_fee = (gross_lamports_out as u128)
+            .checked_mul(config.fee_bps as u128)
+            .ok_or(CookieError::MathOverflow)?
+            .checked_div(10000)
+            .ok_or(CookieError::MathOverflow)? as u64;
 
-        if agent.staked_amount < MIN_STAKE_AMOUNT {
-            agent.is_active = false;
+        let net_payout = gross_lamports_out
+            .checked_sub(total_fee)
+            .ok_or(CookieError::MathOverflow)?;
+
+        require!(net_payout >= min_lamports_out, CookieError::SlippageExceeded);
+
+        user_pos.shares_held = user_pos
+            .shares_held
+            .checked_sub(shares_in)
+            .ok_or(CookieError::MathOverflow)?;
+        registry.total_shares = registry
+            .total_shares
+            .checked_sub(shares_in)
+            .ok_or(CookieError::MathOverflow)?;
+        registry.reserve_lamports = registry
+            .reserve_lamports
+            .checked_sub(gross_lamports_out)
+            .ok_or(CookieError::MathOverflow)?;
+
+        // Disburse lamports from vault PDA to seller
+        let agent_id_bytes = registry.agent_id.as_bytes();
+        let seeds: &[&[&[u8]]] = &[&[
+            VAULT_RESERVE_SEED,
+            agent_id_bytes,
+            &[registry.vault_bump],
+        ]];
+
+        **ctx.accounts.vault_reserve.to_account_info().try_borrow_mut_lamports()? = ctx
+            .accounts
+            .vault_reserve
+            .to_account_info()
+            .lamports()
+            .checked_sub(net_payout)
+            .ok_or(CookieError::MathOverflow)?;
+
+        **ctx.accounts.seller.to_account_info().try_borrow_mut_lamports()? = ctx
+            .accounts
+            .seller
+            .to_account_info()
+            .lamports()
+            .checked_add(net_payout)
+            .ok_or(CookieError::MathOverflow)?;
+
+        // Distribute exit fees
+        if total_fee > 0 {
+            **ctx.accounts.vault_reserve.to_account_info().try_borrow_mut_lamports()? = ctx
+                .accounts
+                .vault_reserve
+                .to_account_info()
+                .lamports()
+                .checked_sub(total_fee)
+                .ok_or(CookieError::MathOverflow)?;
+
+            **ctx.accounts.protocol_treasury.to_account_info().try_borrow_mut_lamports()? = ctx
+                .accounts
+                .protocol_treasury
+                .to_account_info()
+                .lamports()
+                .checked_add(total_fee)
+                .ok_or(CookieError::MathOverflow)?;
         }
 
-        emit!(AgentSlashed {
-            agent: agent.key(),
-            slashed_amount: slash_amount,
-            reason_code,
-            is_active: agent.is_active,
+        emit!(SharesSold {
+            agent_id: registry.agent_id.clone(),
+            seller: ctx.accounts.seller.key(),
+            shares_burned: shares_in,
+            lamports_returned: net_payout,
+            reserve_balance: registry.reserve_lamports,
         });
 
         Ok(())
@@ -374,256 +312,296 @@ pub mod cookie_jar {
 }
 
 // -----------------------------------------------------------------------------
-// INSTRUCTION CONTEXT ACCOUNTS
+// Math Primitives: Mindshare-Weighted Polynomial Bonding Curve
+// -----------------------------------------------------------------------------
+
+/// Bonding Curve: P(S) = (k * S^2) * (1 + Mindshare / 10,000)
+/// Integral: R(S) = (k / 3 * S^3) * MindshareScalar
+pub fn calculate_purchase_return(
+    total_shares: u64,
+    reserve_lamports: u64,
+    mindshare_score: u64,
+    deposit_amount: u64,
+) -> Result<u64> {
+    if total_shares == 0 || reserve_lamports == 0 {
+        // Bootstrap pricing: 1 Share = 1,000,000 Lamports (0.001 SOL) scaled
+        let initial_shares = (deposit_amount as u128)
+            .checked_mul(1_000)
+            .ok_or(CookieError::MathOverflow)?
+            .checked_div(1_000_000)
+            .ok_or(CookieError::MathOverflow)? as u64;
+        return Ok(std::cmp::max(initial_shares, 1));
+    }
+
+    // Dynamic slope scalar influenced by Cookie Mindshare
+    let mindshare_factor = 10_000u128
+        .checked_add(mindshare_score as u128)
+        .ok_or(CookieError::MathOverflow)?;
+
+    let s = total_shares as u128;
+    let r = reserve_lamports as u128;
+    let d = deposit_amount as u128;
+
+    // Delta S = S * ((1 + d / r)^(1/2) - 1) approximated safely via fixed-point
+    let ratio = d
+        .checked_mul(SCALING_FACTOR)
+        .ok_or(CookieError::MathOverflow)?
+        .checked_div(r)
+        .ok_or(CookieError::MathOverflow)?;
+
+    let multiplier = integer_sqrt(SCALING_FACTOR.checked_add(ratio).ok_or(CookieError::MathOverflow)?);
+    let normalized_diff = multiplier
+        .checked_sub(31622) // sqrt(1e9) ~ 31622.77
+        .unwrap_or(0);
+
+    let base_mint = s
+        .checked_mul(normalized_diff)
+        .ok_or(CookieError::MathOverflow)?
+        .checked_div(31622)
+        .ok_or(CookieError::MathOverflow)?;
+
+    // Modulate by mindshare velocity
+    let final_shares = base_mint
+        .checked_mul(10_000)
+        .ok_or(CookieError::MathOverflow)?
+        .checked_div(mindshare_factor)
+        .ok_or(CookieError::MathOverflow)? as u64;
+
+    Ok(std::cmp::max(final_shares, 1))
+}
+
+pub fn calculate_liquidation_return(
+    total_shares: u64,
+    reserve_lamports: u64,
+    _mindshare_score: u64,
+    shares_to_burn: u64,
+) -> Result<u64> {
+    require!(shares_to_burn <= total_shares, CookieError::InsufficientShares);
+    if shares_to_burn == total_shares {
+        return Ok(reserve_lamports);
+    }
+
+    // Pro-rata quadratic liquidation value
+    let s = total_shares as u128;
+    let r = reserve_lamports as u128;
+    let burn = shares_to_burn as u128;
+
+    let burned_ratio = burn
+        .checked_mul(SCALING_FACTOR)
+        .ok_or(CookieError::MathOverflow)?
+        .checked_div(s)
+        .ok_or(CookieError::MathOverflow)?;
+
+    let return_lamports = r
+        .checked_mul(burned_ratio)
+        .ok_or(CookieError::MathOverflow)?
+        .checked_div(SCALING_FACTOR)
+        .ok_or(CookieError::MathOverflow)? as u64;
+
+    Ok(std::cmp::min(return_lamports, reserve_lamports))
+}
+
+fn integer_sqrt(val: u128) -> u128 {
+    let mut x0 = val / 2;
+    if x0 != 0 {
+        let mut x1 = (x0 + val / x0) / 2;
+        while x1 < x0 {
+            x0 = x1;
+            x1 = (x0 + val / x0) / 2;
+        }
+        x0
+    } else {
+        val
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Security Checks: Sysvar Instruction Introspection for Ed25519 Signatures
+// -----------------------------------------------------------------------------
+pub fn verify_ed25519_ix(
+    instructions_sysvar: &AccountInfo,
+    expected_signer: &[u8; 32],
+    data: &[u8],
+    timestamp: i64,
+) -> Result<()> {
+    let current_index = load_current_index_checked(instructions_sysvar)?;
+    require!(current_index > 0, CookieError::MissingSignatureVerificationPrecursor);
+
+    let precursor_ix: Instruction = load_instruction_at_checked(
+        (current_index - 1) as usize,
+        instructions_sysvar,
+    )?;
+
+    // Ed25519 Native Program ID Check
+    require!(
+        precursor_ix.program_id == anchor_lang::solana_program::ed25519_program::ID,
+        CookieError::InvalidSignaturePrecursorProgram
+    );
+
+    // Verify packet header parameters
+    let ix_data = &precursor_ix.data;
+    require!(ix_data.len() >= 16 + 32 + 64, CookieError::MalformedSignatureData);
+
+    // Public Key Extraction from Ed25519 Instruction format
+    let pubkey_offset = u16::from_le_bytes([ix_data[6], ix_data[7]]) as usize;
+    let signer_pubkey = &ix_data[pubkey_offset..pubkey_offset + 32];
+    require!(signer_pubkey == expected_signer, CookieError::UnauthorizedOracleSigner);
+
+    // Message payload comparison
+    let msg_offset = u16::from_le_bytes([ix_data[10], ix_data[11]]) as usize;
+    let msg_size = u16::from_le_bytes([ix_data[12], ix_data[13]]) as usize;
+    let message = &ix_data[msg_offset..msg_offset + msg_size];
+
+    let mut expected_message = Vec::with_capacity(data.len() + 8);
+    expected_message.extend_from_slice(data);
+    expected_message.extend_from_slice(&timestamp.to_le_bytes());
+
+    require!(message == expected_message.as_slice(), CookieError::OracleMessagePayloadMismatch);
+
+    Ok(())
+}
+
+// -----------------------------------------------------------------------------
+// Account Context Layouts
 // -----------------------------------------------------------------------------
 
 #[derive(Accounts)]
-pub struct InitializeProtocol<'info> {
-    #[account(mut)]
-    pub admin: Signer<'info>,
-
+pub fn initialize_protocol<'info>(
     #[account(
         init,
         payer = admin,
         space = 8 + GlobalConfig::INIT_SPACE,
-        seeds = [CONFIG_SEED],
+        seeds = [GLOBAL_CONFIG_SEED],
         bump
     )]
-    pub config: Account<'info, GlobalConfig>,
-
+    pub global_config: Account<'info, GlobalConfig>,
+    #[account(mut)]
+    pub admin: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 #[instruction(agent_id: String)]
-pub struct RegisterAgent<'info> {
-    #[account(mut)]
-    pub agent_owner: Signer<'info>,
-
+pub fn register_agent<'info>(
+    #[account(
+        mut,
+        seeds = [GLOBAL_CONFIG_SEED],
+        bump = global_config.bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
     #[account(
         init,
-        payer = agent_owner,
-        space = 8 + AgentRecord::INIT_SPACE,
-        seeds = [AGENT_SEED, agent_owner.key().as_ref()],
+        payer = creator,
+        space = 8 + AgentRegistry::INIT_SPACE,
+        seeds = [AGENT_REGISTRY_SEED, agent_id.as_bytes()],
         bump
     )]
-    pub agent_record: Account<'info, AgentRecord>,
-
-    pub staking_mint: Account<'info, Mint>,
-
-    #[account(
-        init,
-        payer = agent_owner,
-        seeds = [STAKING_VAULT_SEED, agent_record.key().as_ref()],
-        bump,
-        token::mint = staking_mint,
-        token::authority = agent_record
-    )]
-    pub staking_vault: Account<'info, TokenAccount>,
-
-    #[account(mut, seeds = [CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, GlobalConfig>,
-
-    pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
-    pub rent: Sysvar<'info, Rent>,
-}
-
-#[derive(Accounts)]
-pub struct StakeCollateral<'info> {
-    #[account(mut)]
-    pub funder: Signer<'info>,
-
+    pub agent_registry: Account<'info, AgentRegistry>,
+    /// CHECK: PDA reserve account, initialized on demand
     #[account(
         mut,
-        seeds = [AGENT_SEED, agent_record.owner.as_ref()],
-        bump = agent_record.bump
-    )]
-    pub agent_record: Account<'info, AgentRecord>,
-
-    #[account(
-        mut,
-        seeds = [STAKING_VAULT_SEED, agent_record.key().as_ref()],
-        bump = agent_record.vault_bump
-    )]
-    pub staking_vault: Account<'info, TokenAccount>,
-
-    #[account(
-        mut,
-        constraint = funder_token_account.owner == funder.key(),
-        constraint = funder_token_account.mint == agent_record.mint
-    )]
-    pub funder_token_account: Account<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token>,
-}
-
-#[derive(Accounts)]
-#[instruction(escrow_id: u64)]
-pub struct CreateEscrow<'info> {
-    #[account(mut)]
-    pub sponsor: Signer<'info>,
-
-    pub mint: Account<'info, Mint>,
-
-    #[account(
-        init,
-        payer = sponsor,
-        space = 8 + BountyEscrow::INIT_SPACE,
-        seeds = [ESCROW_SEED, sponsor.key().as_ref(), &escrow_id.to_le_bytes()],
+        seeds = [VAULT_RESERVE_SEED, agent_id.as_bytes()],
         bump
     )]
-    pub bounty_escrow: Account<'info, BountyEscrow>,
-
-    #[account(
-        init,
-        payer = sponsor,
-        seeds = [ESCROW_VAULT_SEED, bounty_escrow.key().as_ref()],
-        bump,
-        token::mint = mint,
-        token::authority = bounty_escrow
-    )]
-    pub escrow_vault: Account<'info, TokenAccount>,
-
-    #[account(
-        mut,
-        constraint = sponsor_token_account.owner == sponsor.key(),
-        constraint = sponsor_token_account.mint == mint.key()
-    )]
-    pub sponsor_token_account: Account<'info, TokenAccount>,
-
-    #[account(mut, seeds = [CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, GlobalConfig>,
-
-    pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
-    pub rent: Sysvar<'info, Rent>,
-}
-
-#[derive(Accounts)]
-#[instruction(epoch_id: u64)]
-pub struct SubmitMindshareEpoch<'info> {
+    pub vault_reserve: AccountInfo<'info>,
     #[account(mut)]
-    pub oracle_authority: Signer<'info>,
-
-    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, GlobalConfig>,
-
-    #[account(
-        init,
-        payer = oracle_authority,
-        space = 8 + EpochState::INIT_SPACE,
-        seeds = [EPOCH_SEED, &epoch_id.to_le_bytes()],
-        bump
-    )]
-    pub epoch_state: Account<'info, EpochState>,
-
+    pub creator: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct UpdateAgentMetric<'info> {
-    pub oracle_authority: Signer<'info>,
-
-    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, GlobalConfig>,
-
+pub fn update_mindshare<'info>(
     #[account(
-        seeds = [EPOCH_SEED, &epoch_state.epoch_id.to_le_bytes()],
-        bump = epoch_state.bump
+        seeds = [GLOBAL_CONFIG_SEED],
+        bump = global_config.bump
     )]
-    pub epoch_state: Account<'info, EpochState>,
-
+    pub global_config: Account<'info, GlobalConfig>,
     #[account(
         mut,
-        seeds = [AGENT_SEED, agent_record.owner.as_ref()],
-        bump = agent_record.bump
+        seeds = [AGENT_REGISTRY_SEED, agent_registry.agent_id.as_bytes()],
+        bump = agent_registry.bump
     )]
-    pub agent_record: Account<'info, AgentRecord>,
+    pub agent_registry: Account<'info, AgentRegistry>,
+    /// CHECK: Validated against sysvar::instructions ID
+    #[account(address = IX_SYSVAR_ID @ CookieError::InvalidSysvar)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
-pub struct SettleAgentBounty<'info> {
+pub fn buy_agent_shares<'info>(
+    #[account(
+        seeds = [GLOBAL_CONFIG_SEED],
+        bump = global_config.bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+    #[account(
+        mut,
+        seeds = [AGENT_REGISTRY_SEED, agent_registry.agent_id.as_bytes()],
+        bump = agent_registry.bump
+    )]
+    pub agent_registry: Account<'info, AgentRegistry>,
+    /// CHECK: Validated PDA vault
+    #[account(
+        mut,
+        seeds = [VAULT_RESERVE_SEED, agent_registry.agent_id.as_bytes()],
+        bump = agent_registry.vault_bump
+    )]
+    pub vault_reserve: AccountInfo<'info>,
+    #[account(
+        init_if_needed,
+        payer = buyer,
+        space = 8 + UserPosition::INIT_SPACE,
+        seeds = [USER_POSITION_SEED, agent_registry.key().as_ref(), buyer.key().as_ref()],
+        bump
+    )]
+    pub user_position: Account<'info, UserPosition>,
+    /// CHECK: Validated creator recipient
+    #[account(mut, address = agent_registry.creator @ CookieError::InvalidCreatorAddress)]
+    pub creator: AccountInfo<'info>,
+    /// CHECK: Validated DAO treasury
+    #[account(mut, address = global_config.admin @ CookieError::InvalidAdminAddress)]
+    pub protocol_treasury: AccountInfo<'info>,
     #[account(mut)]
-    pub caller: Signer<'info>,
-
-    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, GlobalConfig>,
-
-    #[account(
-        mut,
-        seeds = [ESCROW_SEED, bounty_escrow.sponsor.as_ref(), &bounty_escrow.escrow_id.to_le_bytes()],
-        bump = bounty_escrow.bump
-    )]
-    pub bounty_escrow: Account<'info, BountyEscrow>,
-
-    #[account(
-        mut,
-        seeds = [ESCROW_VAULT_SEED, bounty_escrow.key().as_ref()],
-        bump = bounty_escrow.vault_bump
-    )]
-    pub escrow_vault: Account<'info, TokenAccount>,
-
-    #[account(
-        seeds = [EPOCH_SEED, &epoch_state.epoch_id.to_le_bytes()],
-        bump = epoch_state.bump
-    )]
-    pub epoch_state: Account<'info, EpochState>,
-
-    #[account(
-        seeds = [AGENT_SEED, agent_record.owner.as_ref()],
-        bump = agent_record.bump
-    )]
-    pub agent_record: Account<'info, AgentRecord>,
-
-    #[account(
-        mut,
-        constraint = agent_payout_account.owner == agent_record.owner,
-        constraint = agent_payout_account.mint == bounty_escrow.mint
-    )]
-    pub agent_payout_account: Account<'info, TokenAccount>,
-
-    #[account(
-        mut,
-        constraint = protocol_treasury_vault.mint == bounty_escrow.mint
-    )]
-    pub protocol_treasury_vault: Account<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token>,
+    pub buyer: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct SlashFaultyAgent<'info> {
-    pub oracle_authority: Signer<'info>,
-
-    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, GlobalConfig>,
-
+pub fn sell_agent_shares<'info>(
+    #[account(
+        seeds = [GLOBAL_CONFIG_SEED],
+        bump = global_config.bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
     #[account(
         mut,
-        seeds = [AGENT_SEED, agent_record.owner.as_ref()],
-        bump = agent_record.bump
+        seeds = [AGENT_REGISTRY_SEED, agent_registry.agent_id.as_bytes()],
+        bump = agent_registry.bump
     )]
-    pub agent_record: Account<'info, AgentRecord>,
-
+    pub agent_registry: Account<'info, AgentRegistry>,
+    /// CHECK: PDA verified via seed derivation
     #[account(
         mut,
-        seeds = [STAKING_VAULT_SEED, agent_record.key().as_ref()],
-        bump = agent_record.vault_bump
+        seeds = [VAULT_RESERVE_SEED, agent_registry.agent_id.as_bytes()],
+        bump = agent_registry.vault_bump
     )]
-    pub staking_vault: Account<'info, TokenAccount>,
-
+    pub vault_reserve: AccountInfo<'info>,
     #[account(
         mut,
-        constraint = protocol_treasury_vault.mint == agent_record.mint
+        seeds = [USER_POSITION_SEED, agent_registry.key().as_ref(), seller.key().as_ref()],
+        bump
     )]
-    pub protocol_treasury_vault: Account<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token>,
+    pub user_position: Account<'info, UserPosition>,
+    /// CHECK: Protocol treasury
+    #[account(mut, address = global_config.admin @ CookieError::InvalidAdminAddress)]
+    pub protocol_treasury: AccountInfo<'info>,
+    #[account(mut)]
+    pub seller: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 // -----------------------------------------------------------------------------
-// STATE STRUCTURES
+// State Accounts
 // -----------------------------------------------------------------------------
 
 #[account]
@@ -631,61 +609,35 @@ pub struct SlashFaultyAgent<'info> {
 pub struct GlobalConfig {
     pub admin: Pubkey,
     pub oracle_signer: Pubkey,
-    pub protocol_fee_bps: u16,
-    pub total_agents_registered: u64,
-    pub total_bounties_created: u64,
+    pub fee_bps: u16,
+    pub total_agents: u64,
     pub bump: u8,
 }
 
 #[account]
 #[derive(InitSpace)]
-pub struct AgentRecord {
-    pub owner: Pubkey,
-    pub mint: Pubkey,
-    #[max_len(64)]
+pub struct AgentRegistry {
+    pub creator: Pubkey,
+    #[max_len(32)]
     pub agent_id: String,
-    #[max_len(128)]
-    pub metadata_uri: String,
     pub mindshare_score: u64,
-    pub last_epoch_updated: u64,
-    pub staked_amount: u64,
-    pub slashed_amount: u64,
-    pub is_active: bool,
+    pub total_shares: u64,
+    pub reserve_lamports: u64,
+    pub last_update_ts: i64,
     pub bump: u8,
     pub vault_bump: u8,
 }
 
 #[account]
 #[derive(InitSpace)]
-pub struct BountyEscrow {
-    pub sponsor: Pubkey,
-    pub escrow_id: u64,
-    pub mint: Pubkey,
-    pub total_amount: u64,
-    pub remaining_amount: u64,
-    pub target_epoch: u64,
-    pub is_settled: bool,
-    pub bump: u8,
-    pub vault_bump: u8,
-}
-
-#[account]
-#[derive(InitSpace)]
-pub struct EpochState {
-    pub epoch_id: u64,
-    pub total_mindshare: u64,
-    pub finalized: bool,
-    pub bump: u8,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
-pub struct AgentMindshareEntry {
-    pub agent: Pubkey,
-    pub mindshare_score: u64,
+pub struct UserPosition {
+    pub owner: Pubkey,
+    pub agent_registry: Pubkey,
+    pub shares_held: u64,
 }
 
 // -----------------------------------------------------------------------------
-// EVENTS & ERRORS
+// Events & Errors
 // -----------------------------------------------------------------------------
 
 #[event]
@@ -697,87 +649,71 @@ pub struct ProtocolInitialized {
 
 #[event]
 pub struct AgentRegistered {
-    pub agent_pubkey: Pubkey,
-    pub owner: Pubkey,
     pub agent_id: String,
+    pub creator: Pubkey,
+    pub initial_mindshare: u64,
 }
 
 #[event]
-pub struct AgentStaked {
-    pub agent: Pubkey,
-    pub amount: u64,
-    pub total_staked: u64,
+pub struct MindshareUpdated {
+    pub agent_id: String,
+    pub old_mindshare: u64,
+    pub new_mindshare: u64,
+    pub timestamp: i64,
 }
 
 #[event]
-pub struct EscrowCreated {
-    pub escrow_id: u64,
-    pub sponsor: Pubkey,
-    pub amount: u64,
-    pub target_epoch: u64,
+pub struct SharesPurchased {
+    pub agent_id: String,
+    pub buyer: Pubkey,
+    pub lamports_spent: u64,
+    pub shares_minted: u64,
+    pub reserve_balance: u64,
 }
 
 #[event]
-pub struct EpochFinalized {
-    pub epoch_id: u64,
-    pub total_mindshare: u64,
-    pub entries_count: u32,
-}
-
-#[event]
-pub struct AgentScoreUpdated {
-    pub agent: Pubkey,
-    pub epoch_id: u64,
-    pub mindshare_score: u64,
-}
-
-#[event]
-pub struct BountySettled {
-    pub escrow: Pubkey,
-    pub agent: Pubkey,
-    pub gross_amount: u64,
-    pub fee: u64,
-    pub net_amount: u64,
-}
-
-#[event]
-pub struct AgentSlashed {
-    pub agent: Pubkey,
-    pub slashed_amount: u64,
-    pub reason_code: u8,
-    pub is_active: bool,
+pub struct SharesSold {
+    pub agent_id: String,
+    pub seller: Pubkey,
+    pub shares_burned: u64,
+    pub lamports_returned: u64,
+    pub reserve_balance: u64,
 }
 
 #[error_code]
-pub enum CookieJarError {
-    #[msg("Protocol fee exceeds maximum allowed basis points (1000 bps)")]
-    FeeTooHigh,
-    #[msg("Identifier or URI length exceeds maximum boundary")]
-    IdentifierTooLong,
-    #[msg("Stake amount is below required threshold")]
-    StakeTooLow,
-    #[msg("Escrow amount cannot be zero")]
-    ZeroAmount,
-    #[msg("Supplied signer is not authorized as Cookie Oracle authority")]
-    UnauthorizedOracle,
-    #[msg("Provided telemetry mindshare score is invalid")]
-    InvalidTelemetry,
-    #[msg("Requested epoch is already finalized")]
-    EpochAlreadyFinalized,
-    #[msg("Target epoch has not been finalized yet")]
-    EpochNotFinalized,
-    #[msg("Mismatched epoch identifier provided")]
-    EpochMismatch,
-    #[msg("AI Agent is currently marked inactive or suspended")]
-    AgentInactive,
-    #[msg("Agent telemetry is stale for the target settlement epoch")]
-    TelemetryStale,
-    #[msg("Calculated reward rounds down to zero")]
-    RewardTooSmall,
-    #[msg("Bounty escrow has already settled all allocations")]
-    EscrowAlreadySettled,
-    #[msg("Mathematical overflow or division by zero detected")]
+pub enum CookieError {
+    #[msg("Protocol fee exceeds maximum allowed threshold.")]
+    FeeExceedsMaximum,
+    #[msg("Agent ID string length exceeds 32 bytes.")]
+    AgentIdTooLong,
+    #[msg("Mindshare score must be strictly positive.")]
+    InvalidMindshareScore,
+    #[msg("Math calculation resulted in overflow or underflow.")]
     MathOverflow,
-    #[msg("Insufficient staked collateral available to execute slash")]
-    InsufficientStake,
+    #[msg("Oracle timestamp is expired or too far in the future.")]
+    TimestampExpired,
+    #[msg("Data submitted is older than the last recorded epoch.")]
+    StaleDataSubmitted,
+    #[msg("Transaction must be preceded by an Ed25519 signature verification instruction.")]
+    MissingSignatureVerificationPrecursor,
+    #[msg("Instruction preceding this call is not the official Ed25519 program.")]
+    InvalidSignaturePrecursorProgram,
+    #[msg("Ed25519 instruction data is malformed.")]
+    MalformedSignatureData,
+    #[msg("Signature was not signed by the authorized Cookie oracle key.")]
+    UnauthorizedOracleSigner,
+    #[msg("Oracle payload bytes do not match the expected state values.")]
+    OracleMessagePayloadMismatch,
+    #[msg("Amount must be greater than zero.")]
+    ZeroAmount,
+    #[msg("Slippage tolerance exceeded.")]
+    SlippageExceeded,
+    #[msg("Insufficient shares balance to liquidate.")]
+    InsufficientShares,
+    #[msg("Invalid Sysvar Account passed.")]
+    InvalidSysvar,
+    #[msg("Provided creator address does not match Agent Registry creator.")]
+    InvalidCreatorAddress,
+    #[msg("Provided admin address does not match Global Config.")]
+    InvalidAdminAddress,
 }

@@ -1,0 +1,18 @@
+cookie-mindshare/
+├── Anchor.toml
+├── Cargo.toml
+├── programs/
+│   └── cookie-mindshare/
+│       ├── Cargo.toml
+│       └── src/
+│           ├── errors.rs
+│           ├── instructions/
+│           │   ├── initialize_pool.rs
+│           │   ├── update_mindshare.rs
+│           │   ├── stake.rs
+│           │   ├── swap.rs
+│           │   └── mod.rs
+│           ├── state.rs
+│           └── lib.rs
+└── tests/
+    └── cookie-mindshare.ts

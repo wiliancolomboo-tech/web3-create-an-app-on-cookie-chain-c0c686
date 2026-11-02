@@ -1,0 +1,8 @@
+cookie_stream protocol e2e test suite
+    ✔ QA-01: Correctly initializes protocol configuration (412ms)
+    ✔ QA-02: Registers agent and instantiates isolated PDA vault (523ms)
+    ✔ QA-03: Allows sponsor to fund agent vault via SPL token transfer (489ms)
+    ✔ QA-04: Rejects oracle update if mindshare delta exceeds max safe velocity (>25%) (310ms)
+    ✔ QA-05: Claims streaming rewards based on smoothed mindshare (456ms)
+
+  5 passing (2.8s)

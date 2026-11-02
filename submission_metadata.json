@@ -1,0 +1,64 @@
+{
+  "deliverable_id": "superteam_103d60c0c686",
+  "opportunity_id": "st-d777e3ce-3942-4d2f-ab9a-3793327e389f",
+  "platform": "SuperteamEarn",
+  "title": "Create an App on Cookie Chain",
+  "url": "https://earn.superteam.fun/listings/bounty/create-an-app-on-cookie-chain-app",
+  "budget": "1,000 USDC",
+  "prize_amount": 1000.0,
+  "ecosystem": "Solana",
+  "github_url": "https://github.com/wiliancolomboo-tech/web3-create-an-app-on-cookie-chain-c0c686",
+  "status": "validation_warning",
+  "validation_reports": [
+    {
+      "file": "artifact_01_txt.txt",
+      "language": "txt",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "artifact_02_mermaid.txt",
+      "language": "mermaid",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "artifact_03_rust.rs",
+      "language": "rust",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "artifact_04_typescript.ts",
+      "language": "typescript",
+      "valid": false,
+      "error": "Unclosed bracket '{'"
+    },
+    {
+      "file": "artifact_05_bash.sh",
+      "language": "bash",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "artifact_06_bash.sh",
+      "language": "bash",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "artifact_07_bash.sh",
+      "language": "bash",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "artifact_08_bash.sh",
+      "language": "bash",
+      "valid": true,
+      "error": null
+    }
+  ],
+  "git_initialized": true,
+  "created_at": "2026-09-22 22:00:00"
+}

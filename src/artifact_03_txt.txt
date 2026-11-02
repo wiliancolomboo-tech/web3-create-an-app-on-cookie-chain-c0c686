@@ -1,0 +1,19 @@
+cookie-chain-app/
+├── Anchor.toml
+├── Cargo.toml
+├── programs/
+│   └── cookie-chain-app/
+│       ├── Cargo.toml
+│       └── src/
+│           ├── errors.rs
+│           ├── instructions/
+│           │   ├── buy_shares.rs
+│           │   ├── initialize.rs
+│           │   ├── mod.rs
+│           │   ├── register_agent.rs
+│           │   ├── sell_shares.rs
+│           │   └── update_mindshare.rs
+│           ├── state.rs
+│           └── lib.rs
+└── tests/
+    └── cookie-chain-app.ts
