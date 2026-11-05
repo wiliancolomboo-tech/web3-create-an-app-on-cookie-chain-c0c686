@@ -1,5 +1,5 @@
 ANCHOR_PROVIDER_URL=http://127.0.0.1:8899
 ANCHOR_WALLET=./deploy-keypair.json
 RPC_URL=http://127.0.0.1:8899
-COOKIE_API_KEY=cookie_live_a89f92cb839e018a
+COOKIE_API_KEY="mock_development_token_00000000000000"
 ORACLE_KEYPAIR_JSON=[142,88,21,...] # 64-byte secret key array
